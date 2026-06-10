@@ -31,11 +31,17 @@ export const Route = createFileRoute("/protocols")({
 async function readFile(file: File): Promise<string> {
   if (file.type === "text/plain" || file.name.endsWith(".txt")) return file.text();
   if (file.name.endsWith(".pdf")) {
-    const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
-    // worker not needed in many setups for small PDFs; use legacy in-thread fallback
-    (pdfjs as { GlobalWorkerOptions?: { workerSrc?: string } }).GlobalWorkerOptions = { workerSrc: "" };
+    const pdfjs = await import("pdfjs-dist");
+    type PdfMod = {
+      GlobalWorkerOptions?: { workerSrc: string };
+      getDocument: (s: { data: ArrayBuffer; disableWorker?: boolean }) => {
+        promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str: string }[] }> }> }>;
+      };
+    };
+    const lib = pdfjs as unknown as PdfMod;
+    if (lib.GlobalWorkerOptions) lib.GlobalWorkerOptions.workerSrc = "";
     const buf = await file.arrayBuffer();
-    const doc = await (pdfjs as { getDocument: (s: { data: ArrayBuffer; disableWorker?: boolean }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str: string }[] }> }> }> } }).getDocument({ data: buf, disableWorker: true }).promise;
+    const doc = await lib.getDocument({ data: buf, disableWorker: true }).promise;
     let text = "";
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
@@ -45,7 +51,7 @@ async function readFile(file: File): Promise<string> {
     return text;
   }
   if (file.name.endsWith(".docx")) {
-    const mammoth = await import("mammoth/mammoth.browser");
+    const mammoth = await import("mammoth") as unknown as { extractRawText: (o: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> };
     const buf = await file.arrayBuffer();
     const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
     return value;
