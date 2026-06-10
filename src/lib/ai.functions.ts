@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getAiProvider, AI_MODELS } from "./ai-gateway.server";
-import { generateText, generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 
 const ProtocolSummarySchema = z.object({
