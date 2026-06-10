@@ -5,6 +5,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { GlobalErrorBoundary } from "@/components/global-error-boundary";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -80,7 +81,7 @@ function RootShell({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
-        {children}
+        <GlobalErrorBoundary>{children}</GlobalErrorBoundary>
         <Scripts />
       </body>
     </html>
