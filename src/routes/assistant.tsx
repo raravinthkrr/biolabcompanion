@@ -227,12 +227,13 @@ function ChatWindow({ threadId, token, loadInitial }: { threadId: string; token:
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  async function handleSubmit(message: { text: string }) {
-    const v = message.text.trim();
+  async function handleSubmit(text: string) {
+    const v = text.trim();
     if (!v || isLoading) return;
     setInput("");
     await sendMessage({ text: v });
   }
+
 
   function copyMessage(m: UIMessage) {
     const txt = m.parts.map((p) => p.type === "text" ? p.text : "").join("");
