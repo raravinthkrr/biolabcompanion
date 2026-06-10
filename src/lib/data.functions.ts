@@ -18,7 +18,7 @@ export const saveCalculation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error, data: row } = await context.supabase
       .from("calculation_history")
-      .insert({ ...data, user_id: context.userId })
+      .insert({ ...data, user_id: context.userId } as never)
       .select()
       .single();
     if (error) throw new Error(error.message);
@@ -127,7 +127,7 @@ export const saveProtocol = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
-      .from("saved_protocols").insert({ ...data, user_id: context.userId }).select().single();
+      .from("saved_protocols").insert({ ...data, user_id: context.userId } as never).select().single();
     if (error) throw new Error(error.message);
     return row;
   });
@@ -161,7 +161,7 @@ export const savePlan = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
-      .from("experiment_plans").insert({ ...data, user_id: context.userId }).select().single();
+      .from("experiment_plans").insert({ ...data, user_id: context.userId } as never).select().single();
     if (error) throw new Error(error.message);
     return row;
   });
