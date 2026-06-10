@@ -24,13 +24,13 @@ export const summarizeProtocol = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data }) => {
     const provider = getAiProvider();
-    const { object } = await generateObject({
+    const { experimental_output } = await generateText({
       model: provider(AI_MODELS.chat),
-      schema: ProtocolSummarySchema,
+      experimental_output: Output.object({ schema: ProtocolSummarySchema }),
       system: "You are an expert biotechnology laboratory protocol analyst. Extract a structured, scientifically accurate summary of laboratory protocols. Be specific about reagent concentrations, times, and temperatures.",
       prompt: `Analyze the following laboratory protocol and produce a structured summary.\n\nPROTOCOL:\n${data.text}`,
     });
-    return object;
+    return experimental_output;
   });
 
 const PlanSchema = z.object({
