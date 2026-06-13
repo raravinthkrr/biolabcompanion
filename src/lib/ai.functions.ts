@@ -112,7 +112,7 @@ export const askBiotech = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const provider = getAiProvider();
     const { text } = await generateText({
-      model: provider(AI_MODELS.structured),
+      model: provider(AI_MODELS.chat),
       system: "You are an expert biotechnology laboratory assistant. Provide concise, scientifically accurate, markdown-formatted answers.",
       prompt: data.prompt,
     });
