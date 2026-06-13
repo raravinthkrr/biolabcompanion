@@ -1,0 +1,13 @@
+# BioCalc AI
+
+> AI-powered laboratory toolkit for molecular biology, microbiology, and biochemistry — with 15 scientifically accurate calculators, an expert AI lab assistant, protocol summarizer, experiment planner, and reagent helper.
+
+## Pages
+
+- [Home](/): Overview of calculators and AI tools for biotech labs.
+- [About](/about): What BioCalc AI does, why it was built, and how it stays accurate.
+- [Calculators](/calculators): Browse 15 lab calculators covering molecular biology, microbiology, biochemistry, and general lab math.
+- [AI Lab Assistant](/assistant): Chat with an AI trained for molecular biology, cloning, CRISPR, cell culture, enzyme kinetics, and more.
+- [Protocol Summarizer](/protocols): Paste or upload PDF/DOCX/TXT protocols to extract steps, materials, reagents, safety notes, and common mistakes.
+- [Experiment Planner](/planner): Describe your goal, equipment, and budget to get a structured experimental plan with workflow, controls, and troubleshooting.
+- [Reagent Helper](/reagents): Generate reagent recipes, prep steps, storage conditions, and safety notes from natural-language descriptions.
