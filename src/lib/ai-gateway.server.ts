@@ -127,6 +127,10 @@ export async function withLovableAiGatewayRunIdHeader(
  */
 export const AI_MODELS = {
   chat: "google/gemini-3-flash-preview",
+  // Structured-output calls (Output.object) must use a model that supports
+  // JSON response_format via the openai-compatible provider. gemini-3-flash-preview
+  // rejects responseFormat, so structured generators use 2.5-flash instead.
+  structured: "google/gemini-2.5-flash",
   reasoning: "google/gemini-2.5-pro",
   fast: "google/gemini-2.5-flash-lite",
 } as const;
