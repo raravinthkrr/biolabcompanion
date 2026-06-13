@@ -43,8 +43,9 @@ export const Route = createFileRoute("/api/chat")({
         if (rawText.length > MAX_BYTES) {
           return new Response("Payload too large", { status: 413 });
         }
-        let body: { messages?: UIMessage[]; threadId?: string } | null = null;
-        try { body = JSON.parse(rawText) as typeof body; } catch { body = null; }
+        type Body = { messages?: UIMessage[]; threadId?: string };
+        let body: Body | null = null;
+        try { body = JSON.parse(rawText) as Body; } catch { body = null; }
         if (!body || !Array.isArray(body.messages) || !body.threadId || typeof body.threadId !== "string") {
           return new Response("Missing messages or threadId", { status: 400 });
         }
