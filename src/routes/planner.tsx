@@ -57,7 +57,7 @@ function PlannerPage() {
       const r = await planFn({ data: { goal, equipment, sample_type: sample, budget, time_available: time } });
       setPlan(r);
       toast.success("Plan ready.");
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error("Something went wrong. Please try again."); }
     finally { setBusy(false); }
   }
   async function save() {

@@ -85,7 +85,7 @@ function ProtocolsPage() {
       setText(t);
       if (!title) setTitle(file.name.replace(/\.[^.]+$/, ""));
       toast.success("File loaded.");
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error("Something went wrong. Please try again."); }
     finally { setBusy(false); }
   }
 
@@ -97,7 +97,7 @@ function ProtocolsPage() {
       setResult(r);
       if (!title) setTitle(r.title);
       toast.success("Summary ready.");
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error("Something went wrong. Please try again."); }
     finally { setBusy(false); }
   }
 
