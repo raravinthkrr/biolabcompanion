@@ -33,9 +33,43 @@ export const Route = createFileRoute("/api/chat")({
         }
         const userId = claims.claims.sub as string;
 
-        const body = await request.json().catch(() => null) as { messages?: UIMessage[]; threadId?: string } | null;
-        if (!body || !Array.isArray(body.messages) || !body.threadId) {
+        // Enforce payload size limit (256 KB) before parsing.
+        const contentLength = Number(request.headers.get("content-length") ?? "0");
+        const MAX_BYTES = 256 * 1024;
+        if (contentLength && contentLength > MAX_BYTES) {
+          return new Response("Payload too large", { status: 413 });
+        }
+        const rawText = await request.text();
+        if (rawText.length > MAX_BYTES) {
+          return new Response("Payload too large", { status: 413 });
+        }
+        const body = (() => { try { return JSON.parse(rawText); } catch { return null; } }()) as { messages?: UIMessage[]; threadId?: string } | null;
+        if (!body || !Array.isArray(body.messages) || !body.threadId || typeof body.threadId !== "string") {
           return new Response("Missing messages or threadId", { status: 400 });
+        }
+        const MAX_MESSAGES = 100;
+        const MAX_PARTS_PER_MSG = 50;
+        const MAX_TEXT_PER_PART = 32 * 1024;
+        if (body.messages.length === 0 || body.messages.length > MAX_MESSAGES) {
+          return new Response("Invalid message count", { status: 400 });
+        }
+        for (const m of body.messages) {
+          if (!m || typeof m !== "object" || !Array.isArray((m as UIMessage).parts)) {
+            return new Response("Invalid message shape", { status: 400 });
+          }
+          const parts = (m as UIMessage).parts;
+          if (parts.length > MAX_PARTS_PER_MSG) {
+            return new Response("Too many parts", { status: 400 });
+          }
+          for (const p of parts) {
+            if (!p || typeof p !== "object" || typeof (p as { type?: unknown }).type !== "string") {
+              return new Response("Invalid part shape", { status: 400 });
+            }
+            const text = (p as { text?: unknown }).text;
+            if (text !== undefined && (typeof text !== "string" || text.length > MAX_TEXT_PER_PART)) {
+              return new Response("Part text too large", { status: 400 });
+            }
+          }
         }
         const messages: UIMessage[] = body.messages;
         const threadId: string = body.threadId;
