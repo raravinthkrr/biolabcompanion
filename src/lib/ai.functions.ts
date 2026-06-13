@@ -25,7 +25,7 @@ export const summarizeProtocol = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const provider = getAiProvider();
     const { experimental_output } = await generateText({
-      model: provider(AI_MODELS.chat),
+      model: provider(AI_MODELS.structured),
       experimental_output: Output.object({ schema: ProtocolSummarySchema }),
       system: "You are an expert biotechnology laboratory protocol analyst. Extract a structured, scientifically accurate summary of laboratory protocols. Be specific about reagent concentrations, times, and temperatures.",
       prompt: `Analyze the following laboratory protocol and produce a structured summary.\n\nPROTOCOL:\n${data.text}`,
@@ -61,7 +61,7 @@ export const planExperiment = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const provider = getAiProvider();
     const { experimental_output } = await generateText({
-      model: provider(AI_MODELS.chat),
+      model: provider(AI_MODELS.structured),
       experimental_output: Output.object({ schema: PlanSchema }),
       system: "You are an expert biotechnology experimental designer. Produce realistic, college- and research-level experimental plans grounded in standard molecular biology and microbiology best practices. Always include appropriate controls.",
       prompt: `Design an experimental plan for the following.
@@ -97,7 +97,7 @@ export const reagentHelper = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const provider = getAiProvider();
     const { experimental_output } = await generateText({
-      model: provider(AI_MODELS.chat),
+      model: provider(AI_MODELS.structured),
       experimental_output: Output.object({ schema: ReagentSchema }),
       system: "You are a meticulous biochemistry reagent and buffer preparation expert. Provide precise quantities, accurate molecular weights, and standard preparation procedures used in working molecular biology labs.",
       prompt: `Prepare a reagent recipe for: ${data.query}`,
@@ -112,7 +112,7 @@ export const askBiotech = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const provider = getAiProvider();
     const { text } = await generateText({
-      model: provider(AI_MODELS.chat),
+      model: provider(AI_MODELS.structured),
       system: "You are an expert biotechnology laboratory assistant. Provide concise, scientifically accurate, markdown-formatted answers.",
       prompt: data.prompt,
     });
