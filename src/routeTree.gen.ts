@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ReagentsRouteImport } from './routes/reagents'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
@@ -22,6 +23,11 @@ import { Route as CalculatorsIndexRouteImport } from './routes/calculators.index
 import { Route as CalculatorsSlugRouteImport } from './routes/calculators.$slug'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/protocols': typeof ProtocolsRoute
   '/reagents': typeof ReagentsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/chat': typeof ApiChatRoute
   '/calculators/$slug': typeof CalculatorsSlugRoute
   '/calculators/': typeof CalculatorsIndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/protocols': typeof ProtocolsRoute
   '/reagents': typeof ReagentsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/chat': typeof ApiChatRoute
   '/calculators/$slug': typeof CalculatorsSlugRoute
   '/calculators': typeof CalculatorsIndexRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/protocols': typeof ProtocolsRoute
   '/reagents': typeof ReagentsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/chat': typeof ApiChatRoute
   '/calculators/$slug': typeof CalculatorsSlugRoute
   '/calculators/': typeof CalculatorsIndexRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/protocols'
     | '/reagents'
     | '/reset-password'
+    | '/sitemap.xml'
     | '/api/chat'
     | '/calculators/$slug'
     | '/calculators/'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/protocols'
     | '/reagents'
     | '/reset-password'
+    | '/sitemap.xml'
     | '/api/chat'
     | '/calculators/$slug'
     | '/calculators'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/protocols'
     | '/reagents'
     | '/reset-password'
+    | '/sitemap.xml'
     | '/api/chat'
     | '/calculators/$slug'
     | '/calculators/'
@@ -181,6 +193,7 @@ export interface RootRouteChildren {
   ProtocolsRoute: typeof ProtocolsRoute
   ReagentsRoute: typeof ReagentsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiChatRoute: typeof ApiChatRoute
   CalculatorsSlugRoute: typeof CalculatorsSlugRoute
   CalculatorsIndexRoute: typeof CalculatorsIndexRoute
@@ -188,6 +201,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProtocolsRoute: ProtocolsRoute,
   ReagentsRoute: ReagentsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiChatRoute: ApiChatRoute,
   CalculatorsSlugRoute: CalculatorsSlugRoute,
   CalculatorsIndexRoute: CalculatorsIndexRoute,
@@ -292,3 +313,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
