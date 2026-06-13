@@ -46,7 +46,7 @@ function ReagentPage() {
   async function ask(query: string) {
     setBusy(true); setQ(query); setOut(null);
     try { setOut(await fn({ data: { query } })); }
-    catch (e) { toast.error((e as Error).message); }
+    catch (e) { toast.error("Something went wrong. Please try again."); }
     finally { setBusy(false); }
   }
 

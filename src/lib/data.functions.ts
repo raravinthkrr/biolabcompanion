@@ -21,7 +21,7 @@ export const saveCalculation = createServerFn({ method: "POST" })
       .insert({ ...data, user_id: context.userId } as never)
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return row;
   });
 
@@ -33,7 +33,7 @@ export const listCalculations = createServerFn({ method: "GET" })
       .select("*")
       .order("created_at", { ascending: false })
       .limit(500);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return data ?? [];
   });
 
@@ -45,7 +45,7 @@ export const toggleFavoriteCalc = createServerFn({ method: "POST" })
       .from("calculation_history")
       .update({ favorite: data.favorite })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return { ok: true };
   });
 
@@ -54,7 +54,7 @@ export const deleteCalculation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("calculation_history").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return { ok: true };
   });
 
@@ -67,7 +67,7 @@ export const listThreads = createServerFn({ method: "GET" })
       .from("chat_threads")
       .select("*")
       .order("updated_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return data ?? [];
   });
 
@@ -80,7 +80,7 @@ export const createThread = createServerFn({ method: "POST" })
       .insert({ user_id: context.userId, title: data.title ?? "New chat" })
       .select()
       .single();
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return row;
   });
 
@@ -90,7 +90,7 @@ export const renameThread = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("chat_threads").update({ title: data.title }).eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return { ok: true };
   });
 
@@ -99,7 +99,7 @@ export const deleteThread = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("chat_threads").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return { ok: true };
   });
 
@@ -112,7 +112,7 @@ export const getThreadMessages = createServerFn({ method: "POST" })
       .select("id, role, parts, created_at")
       .eq("thread_id", data.threadId)
       .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return rows ?? [];
   });
 
@@ -128,7 +128,7 @@ export const saveProtocol = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
       .from("saved_protocols").insert({ ...data, user_id: context.userId } as never).select().single();
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return row;
   });
 
@@ -137,7 +137,7 @@ export const listProtocols = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("saved_protocols").select("*").order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return data ?? [];
   });
 
@@ -146,7 +146,7 @@ export const deleteProtocol = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("saved_protocols").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return { ok: true };
   });
 
@@ -162,7 +162,7 @@ export const savePlan = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
       .from("experiment_plans").insert({ ...data, user_id: context.userId } as never).select().single();
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return row;
   });
 
@@ -171,7 +171,7 @@ export const listPlans = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("experiment_plans").select("*").order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return data ?? [];
   });
 
@@ -180,6 +180,6 @@ export const deletePlan = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("experiment_plans").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return { ok: true };
   });
