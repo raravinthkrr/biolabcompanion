@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getAiProvider, AI_MODELS } from "./ai-gateway.server";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 
 const ProtocolSummarySchema = z.object({
@@ -17,20 +17,41 @@ const ProtocolSummarySchema = z.object({
 
 export type ProtocolSummary = z.infer<typeof ProtocolSummarySchema>;
 
+function extractJson(text: string) {
+  const stripped = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+  const firstObject = stripped.indexOf("{");
+  const firstArray = stripped.indexOf("[");
+  const start = [firstObject, firstArray].filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? -1;
+  if (start < 0) throw new Error("AI response did not include JSON");
+  const open = stripped[start];
+  const close = open === "{" ? "}" : "]";
+  const end = stripped.lastIndexOf(close);
+  if (end <= start) throw new Error("AI response JSON was incomplete");
+  const candidate = stripped.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1");
+  return JSON.parse(candidate) as unknown;
+}
+
+async function generateStructured<T>(schema: z.ZodType<T>, system: string, prompt: string) {
+  const provider = getAiProvider();
+  const { text } = await generateText({
+    model: provider(AI_MODELS.structured),
+    system: `${system}\n\nReturn only valid JSON matching the requested fields. Do not wrap it in markdown. Use empty arrays when a list has no items.`,
+    prompt,
+  });
+  return schema.parse(extractJson(text));
+}
+
 export const summarizeProtocol = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
     text: z.string().min(20).max(50000),
   }).parse(d))
   .handler(async ({ data }) => {
-    const provider = getAiProvider();
-    const { experimental_output } = await generateText({
-      model: provider(AI_MODELS.structured),
-      experimental_output: Output.object({ schema: ProtocolSummarySchema }),
-      system: "You are an expert biotechnology laboratory protocol analyst. Extract a structured, scientifically accurate summary of laboratory protocols. Be specific about reagent concentrations, times, and temperatures.",
-      prompt: `Analyze the following laboratory protocol and produce a structured summary.\n\nPROTOCOL:\n${data.text}`,
-    });
-    return experimental_output;
+    return generateStructured(
+      ProtocolSummarySchema,
+      "You are an expert biotechnology laboratory protocol analyst. Extract a structured, scientifically accurate summary of laboratory protocols. Be specific about reagent concentrations, times, and temperatures.",
+      `Analyze the following laboratory protocol and return JSON with: title, summary, steps, materials, reagents, safety_notes, time_estimate, common_mistakes.\n\nPROTOCOL:\n${data.text}`,
+    );
   });
 
 const PlanSchema = z.object({
