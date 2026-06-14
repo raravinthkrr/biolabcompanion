@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -196,33 +196,35 @@ function AssistantPage() {
 
 function ChatWindow({ threadId, token, loadInitial }: { threadId: string; token: string; loadInitial: () => Promise<UIMessage[]>; }) {
   const [initial, setInitial] = useState<UIMessage[] | null>(null);
-  const [input, setInput] = useState("");
-  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => { loadInitial().then(setInitial).catch(() => setInitial([])); }, [loadInitial]);
+  useEffect(() => {
+    let cancelled = false;
+    setInitial(null);
+    loadInitial().then((rows) => { if (!cancelled) setInitial(rows); }).catch(() => { if (!cancelled) setInitial([]); });
+    return () => { cancelled = true; };
+  }, [loadInitial]);
 
-  const transport = useRef(new DefaultChatTransport({
+  if (!initial) {
+    return <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading conversation…</div>;
+  }
+
+  return <ChatSession key={`${threadId}:${initial.length}`} threadId={threadId} token={token} initial={initial} />;
+}
+
+function ChatSession({ threadId, token, initial }: { threadId: string; token: string; initial: UIMessage[]; }) {
+  const transport = useMemo(() => new DefaultChatTransport({
     api: "/api/chat",
     headers: () => ({ Authorization: `Bearer ${token}` }),
     body: () => ({ threadId }),
-  }));
-  // Refresh transport when token/threadId changes
-  useEffect(() => {
-    transport.current = new DefaultChatTransport({
-      api: "/api/chat",
-      headers: () => ({ Authorization: `Bearer ${token}` }),
-      body: () => ({ threadId }),
-    });
-  }, [token, threadId]);
+  }), [token, threadId]);
 
   const { messages, sendMessage, status, regenerate, error } = useChat({
     id: threadId,
-    messages: initial ?? [],
-    transport: transport.current,
+    messages: initial,
+    transport,
     onError: (e) => toast.error(e.message),
   });
 
-  useEffect(() => { composerRef.current?.focus(); }, [threadId, status]);
   useEffect(() => { if (error) toast.error(error.message); }, [error]);
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -230,7 +232,6 @@ function ChatWindow({ threadId, token, loadInitial }: { threadId: string; token:
   async function handleSubmit(text: string) {
     const v = text.trim();
     if (!v || isLoading) return;
-    setInput("");
     await sendMessage({ text: v });
   }
 
