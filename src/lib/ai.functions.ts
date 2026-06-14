@@ -80,22 +80,18 @@ export const planExperiment = createServerFn({ method: "POST" })
     time_available: z.string().max(200).optional(),
   }).parse(d))
   .handler(async ({ data }) => {
-    const provider = getAiProvider();
-    const { experimental_output } = await generateText({
-      model: provider(AI_MODELS.structured),
-      experimental_output: Output.object({ schema: PlanSchema }),
-      system: "You are an expert biotechnology experimental designer. Produce realistic, college- and research-level experimental plans grounded in standard molecular biology and microbiology best practices. Always include appropriate controls.",
-      prompt: `Design an experimental plan for the following.
+    return generateStructured(
+      PlanSchema,
+      "You are an expert biotechnology experimental designer. Produce realistic, college- and research-level experimental plans grounded in standard molecular biology and microbiology best practices. Always include appropriate controls.",
+      `Design an experimental plan and return JSON with: title, overview, workflow, materials, reagents, controls, expected_outputs, troubleshooting, safety, estimated_timeline, estimated_cost.
 
 Goal: ${data.goal}
 Available equipment: ${data.equipment || "standard wet lab"}
 Sample type: ${data.sample_type || "unspecified"}
 Budget: ${data.budget || "moderate"}
 Time available: ${data.time_available || "1-2 weeks"}
-
-Return a structured plan.`,
-    });
-    return experimental_output;
+`,
+    );
   });
 
 const ReagentSchema = z.object({
@@ -116,14 +112,11 @@ export const reagentHelper = createServerFn({ method: "POST" })
     query: z.string().min(3).max(500),
   }).parse(d))
   .handler(async ({ data }) => {
-    const provider = getAiProvider();
-    const { experimental_output } = await generateText({
-      model: provider(AI_MODELS.structured),
-      experimental_output: Output.object({ schema: ReagentSchema }),
-      system: "You are a meticulous biochemistry reagent and buffer preparation expert. Provide precise quantities, accurate molecular weights, and standard preparation procedures used in working molecular biology labs.",
-      prompt: `Prepare a reagent recipe for: ${data.query}`,
-    });
-    return experimental_output;
+    return generateStructured(
+      ReagentSchema,
+      "You are a meticulous biochemistry reagent and buffer preparation expert. Provide precise quantities, accurate molecular weights, and standard preparation procedures used in working molecular biology labs.",
+      `Prepare a reagent recipe and return JSON with: reagent_name, final_volume, ingredients, preparation_steps, storage, shelf_life, safety. Request: ${data.query}`,
+    );
   });
 
 // Generic ask used by quick-prompt cards (returns markdown text)
