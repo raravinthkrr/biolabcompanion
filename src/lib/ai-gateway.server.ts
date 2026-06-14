@@ -126,11 +126,10 @@ export async function withLovableAiGatewayRunIdHeader(
  * Default: Lovable AI Gateway → Gemini 3 Flash Preview.
  */
 export const AI_MODELS = {
-  chat: "google/gemini-3-flash-preview",
-  // Structured-output calls (Output.object) must use a model that supports
-  // JSON response_format via the openai-compatible provider. gemini-3-flash-preview
-  // rejects responseFormat, so structured generators use 2.5-flash instead.
-  structured: "google/gemini-2.5-flash",
+  chat: "google/gemini-3.5-flash",
+  // Structured generators now ask for plain JSON and validate it in app code,
+  // avoiding model-specific response_format failures while keeping outputs stable.
+  structured: "google/gemini-3.5-flash",
   reasoning: "google/gemini-2.5-pro",
   fast: "google/gemini-2.5-flash-lite",
 } as const;
