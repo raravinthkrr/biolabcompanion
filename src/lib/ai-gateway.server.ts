@@ -126,10 +126,11 @@ export async function withLovableAiGatewayRunIdHeader(
  * Default: Lovable AI Gateway → Gemini 3 Flash Preview.
  */
 export const AI_MODELS = {
-  chat: "google/gemini-3.5-flash",
-  // Structured generators now ask for plain JSON and validate it in app code,
-  // avoiding model-specific response_format failures while keeping outputs stable.
-  structured: "google/gemini-3.5-flash",
+  // Fast preview model — lowest TTFT for the streaming chat assistant.
+  chat: "google/gemini-3-flash-preview",
+  // Structured generators ask for plain JSON and validate it in app code,
+  // avoiding model-specific response_format failures.
+  structured: "google/gemini-2.5-flash",
   reasoning: "google/gemini-2.5-pro",
   fast: "google/gemini-2.5-flash-lite",
 } as const;
