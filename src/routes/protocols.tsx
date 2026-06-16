@@ -97,7 +97,11 @@ function ProtocolsPage() {
       setResult(r);
       if (!title) setTitle(r.title);
       toast.success("Summary ready.");
-    } catch (e) { toast.error("Something went wrong. Please try again."); }
+    } catch (e) {
+      console.error("summarizeProtocol failed:", e);
+      const msg = e instanceof Error ? e.message : "";
+      toast.error(msg.includes("AI") ? "The AI service is temporarily unavailable. Please try again in a few seconds." : msg || "Something went wrong. Please try again.");
+    }
     finally { setBusy(false); }
   }
 
