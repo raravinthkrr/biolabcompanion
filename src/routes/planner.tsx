@@ -57,7 +57,11 @@ function PlannerPage() {
       const r = await planFn({ data: { goal, equipment, sample_type: sample, budget, time_available: time } });
       setPlan(r);
       toast.success("Plan ready.");
-    } catch (e) { toast.error("Something went wrong. Please try again."); }
+    } catch (e) {
+      console.error("planExperiment failed:", e);
+      const msg = e instanceof Error ? e.message : "";
+      toast.error(msg.includes("AI") ? "The AI service is temporarily unavailable. Please try again in a few seconds." : msg || "Something went wrong. Please try again.");
+    }
     finally { setBusy(false); }
   }
   async function save() {
