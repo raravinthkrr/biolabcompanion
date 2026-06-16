@@ -46,7 +46,11 @@ function ReagentPage() {
   async function ask(query: string) {
     setBusy(true); setQ(query); setOut(null);
     try { setOut(await fn({ data: { query } })); }
-    catch (e) { toast.error("Something went wrong. Please try again."); }
+    catch (e) {
+      console.error("reagentHelper failed:", e);
+      const msg = e instanceof Error ? e.message : "";
+      toast.error(msg.includes("AI") ? "The AI service is temporarily unavailable. Please try again in a few seconds." : msg || "Something went wrong. Please try again.");
+    }
     finally { setBusy(false); }
   }
 
