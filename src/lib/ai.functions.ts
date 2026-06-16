@@ -4,118 +4,191 @@ import { getAiProvider, AI_MODELS } from "./ai-gateway.server";
 import { generateText } from "ai";
 import { z } from "zod";
 
-const ProtocolSummarySchema = z.object({
-  title: z.string(),
-  summary: z.string(),
-  steps: z.array(z.string()),
-  materials: z.array(z.string()),
-  reagents: z.array(z.string()),
-  safety_notes: z.array(z.string()),
-  time_estimate: z.string(),
-  common_mistakes: z.array(z.string()),
-});
+// ---- Lenient schemas: every list defaults to [], optionals stay optional.
+// This prevents Zod parse failures when the model omits a field that the user
+// can live without, and keeps the UI from showing "Something went wrong".
 
+const ProtocolSummarySchema = z.object({
+  title: z.string().default("Protocol"),
+  summary: z.string().default(""),
+  steps: z.array(z.string()).default([]),
+  materials: z.array(z.string()).default([]),
+  reagents: z.array(z.string()).default([]),
+  safety_notes: z.array(z.string()).default([]),
+  time_estimate: z.string().default(""),
+  common_mistakes: z.array(z.string()).default([]),
+});
 export type ProtocolSummary = z.infer<typeof ProtocolSummarySchema>;
 
-function extractJson(text: string) {
-  const stripped = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
-  const firstObject = stripped.indexOf("{");
-  const firstArray = stripped.indexOf("[");
-  const start = [firstObject, firstArray].filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? -1;
-  if (start < 0) throw new Error("AI response did not include JSON");
-  const open = stripped[start];
+const PlanSchema = z.object({
+  title: z.string().default("Experimental Plan"),
+  overview: z.string().default(""),
+  workflow: z
+    .array(
+      z.object({
+        step: z.coerce.number().default(0),
+        action: z.string().default(""),
+        duration: z.string().optional(),
+      }),
+    )
+    .default([]),
+  materials: z.array(z.string()).default([]),
+  reagents: z.array(z.string()).default([]),
+  controls: z.array(z.string()).default([]),
+  expected_outputs: z.array(z.string()).default([]),
+  troubleshooting: z
+    .array(z.object({ issue: z.string().default(""), solution: z.string().default("") }))
+    .default([]),
+  safety: z.array(z.string()).default([]),
+  estimated_timeline: z.string().default(""),
+  estimated_cost: z.string().optional(),
+});
+export type ExperimentPlan = z.infer<typeof PlanSchema>;
+
+const ReagentSchema = z.object({
+  reagent_name: z.string().default("Reagent"),
+  final_volume: z.string().default(""),
+  ingredients: z
+    .array(
+      z.object({
+        name: z.string().default(""),
+        amount: z.string().default(""),
+        notes: z.string().optional(),
+      }),
+    )
+    .default([]),
+  preparation_steps: z.array(z.string()).default([]),
+  storage: z.string().default(""),
+  shelf_life: z.string().optional(),
+  safety: z.array(z.string()).default([]),
+});
+export type ReagentRecipe = z.infer<typeof ReagentSchema>;
+
+// ---- Robust JSON extraction (handles markdown fences, prose preamble, trailing commas)
+function extractJson(text: string): unknown {
+  if (!text) throw new Error("Empty AI response");
+  let cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+  const firstObj = cleaned.indexOf("{");
+  const firstArr = cleaned.indexOf("[");
+  const candidates = [firstObj, firstArr].filter((i) => i >= 0);
+  if (candidates.length === 0) throw new Error("No JSON found in AI response");
+  const start = Math.min(...candidates);
+  const open = cleaned[start];
   const close = open === "{" ? "}" : "]";
-  const end = stripped.lastIndexOf(close);
-  if (end <= start) throw new Error("AI response JSON was incomplete");
-  const candidate = stripped.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1");
-  return JSON.parse(candidate) as unknown;
+  const end = cleaned.lastIndexOf(close);
+  if (end <= start) throw new Error("Incomplete JSON in AI response");
+  let candidate = cleaned.slice(start, end + 1);
+  // Strip trailing commas + control characters
+  candidate = candidate.replace(/,\s*([}\]])/g, "$1").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    // Last-resort: balance braces/brackets
+    let braces = 0;
+    let brackets = 0;
+    for (const ch of candidate) {
+      if (ch === "{") braces++;
+      else if (ch === "}") braces--;
+      else if (ch === "[") brackets++;
+      else if (ch === "]") brackets--;
+    }
+    let repaired = candidate;
+    while (brackets-- > 0) repaired += "]";
+    while (braces-- > 0) repaired += "}";
+    return JSON.parse(repaired);
+  }
 }
 
-async function generateStructured<T>(schema: z.ZodType<T>, system: string, prompt: string) {
+async function generateStructured<T>(
+  schema: z.ZodType<T>,
+  system: string,
+  prompt: string,
+): Promise<T> {
   const provider = getAiProvider();
-  const { text } = await generateText({
-    model: provider(AI_MODELS.structured),
-    system: `${system}\n\nReturn only valid JSON matching the requested fields. Do not wrap it in markdown. Use empty arrays when a list has no items.`,
-    prompt,
-  });
-  return schema.parse(extractJson(text));
+  const fullSystem = `${system}
+
+You MUST return ONLY a single valid JSON object containing every requested field.
+- Do not wrap the JSON in markdown fences.
+- Do not include any prose before or after the JSON.
+- Use empty arrays ([]) when a list has no items, never omit list fields.
+- All string values must use double quotes and be valid JSON strings.`;
+
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { text } = await generateText({
+        model: provider(AI_MODELS.structured),
+        system: fullSystem,
+        prompt,
+        temperature: attempt === 0 ? 0.3 : 0.1,
+      });
+      const json = extractJson(text);
+      return schema.parse(json);
+    } catch (err) {
+      lastErr = err;
+      console.error(`[AI structured] attempt ${attempt + 1} failed:`, err instanceof Error ? err.message : err);
+    }
+  }
+  const msg = lastErr instanceof Error ? lastErr.message : "AI generation failed";
+  throw new Error(`AI generation failed: ${msg}`);
 }
 
 export const summarizeProtocol = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    text: z.string().min(20).max(50000),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ text: z.string().min(20).max(50000) }).parse(d),
+  )
   .handler(async ({ data }) => {
     return generateStructured(
       ProtocolSummarySchema,
       "You are an expert biotechnology laboratory protocol analyst. Extract a structured, scientifically accurate summary of laboratory protocols. Be specific about reagent concentrations, times, and temperatures.",
-      `Analyze the following laboratory protocol and return JSON with: title, summary, steps, materials, reagents, safety_notes, time_estimate, common_mistakes.\n\nPROTOCOL:\n${data.text}`,
+      `Analyze the following laboratory protocol and return JSON with keys: title (string), summary (string), steps (string[]), materials (string[]), reagents (string[]), safety_notes (string[]), time_estimate (string), common_mistakes (string[]).
+
+PROTOCOL:
+${data.text}`,
     );
   });
 
-const PlanSchema = z.object({
-  title: z.string(),
-  overview: z.string(),
-  workflow: z.array(z.object({ step: z.number(), action: z.string(), duration: z.string().optional() })),
-  materials: z.array(z.string()),
-  reagents: z.array(z.string()),
-  controls: z.array(z.string()),
-  expected_outputs: z.array(z.string()),
-  troubleshooting: z.array(z.object({ issue: z.string(), solution: z.string() })),
-  safety: z.array(z.string()),
-  estimated_timeline: z.string(),
-  estimated_cost: z.string().optional(),
-});
-
-export type ExperimentPlan = z.infer<typeof PlanSchema>;
-
 export const planExperiment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    goal: z.string().min(5).max(2000),
-    equipment: z.string().max(2000).optional(),
-    sample_type: z.string().max(500).optional(),
-    budget: z.string().max(200).optional(),
-    time_available: z.string().max(200).optional(),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({
+      goal: z.string().min(5).max(2000),
+      equipment: z.string().max(2000).optional(),
+      sample_type: z.string().max(500).optional(),
+      budget: z.string().max(200).optional(),
+      time_available: z.string().max(200).optional(),
+    }).parse(d),
+  )
   .handler(async ({ data }) => {
     return generateStructured(
       PlanSchema,
       "You are an expert biotechnology experimental designer. Produce realistic, college- and research-level experimental plans grounded in standard molecular biology and microbiology best practices. Always include appropriate controls.",
-      `Design an experimental plan and return JSON with: title, overview, workflow, materials, reagents, controls, expected_outputs, troubleshooting, safety, estimated_timeline, estimated_cost.
+      `Design an experimental plan and return JSON with keys: title (string), overview (string), workflow (array of {step: number, action: string, duration?: string}), materials (string[]), reagents (string[]), controls (string[]), expected_outputs (string[]), troubleshooting (array of {issue, solution}), safety (string[]), estimated_timeline (string), estimated_cost (string).
 
 Goal: ${data.goal}
 Available equipment: ${data.equipment || "standard wet lab"}
 Sample type: ${data.sample_type || "unspecified"}
 Budget: ${data.budget || "moderate"}
-Time available: ${data.time_available || "1-2 weeks"}
-`,
+Time available: ${data.time_available || "1-2 weeks"}`,
     );
   });
 
-const ReagentSchema = z.object({
-  reagent_name: z.string(),
-  final_volume: z.string(),
-  ingredients: z.array(z.object({ name: z.string(), amount: z.string(), notes: z.string().optional() })),
-  preparation_steps: z.array(z.string()),
-  storage: z.string(),
-  shelf_life: z.string().optional(),
-  safety: z.array(z.string()),
-});
-
-export type ReagentRecipe = z.infer<typeof ReagentSchema>;
-
 export const reagentHelper = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    query: z.string().min(3).max(500),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ query: z.string().min(3).max(500) }).parse(d),
+  )
   .handler(async ({ data }) => {
     return generateStructured(
       ReagentSchema,
       "You are a meticulous biochemistry reagent and buffer preparation expert. Provide precise quantities, accurate molecular weights, and standard preparation procedures used in working molecular biology labs.",
-      `Prepare a reagent recipe and return JSON with: reagent_name, final_volume, ingredients, preparation_steps, storage, shelf_life, safety. Request: ${data.query}`,
+      `Prepare a reagent recipe and return JSON with keys: reagent_name (string), final_volume (string), ingredients (array of {name, amount, notes?}), preparation_steps (string[]), storage (string), shelf_life (string), safety (string[]).
+
+Request: ${data.query}`,
     );
   });
 
@@ -127,7 +200,8 @@ export const askBiotech = createServerFn({ method: "POST" })
     const provider = getAiProvider();
     const { text } = await generateText({
       model: provider(AI_MODELS.chat),
-      system: "You are an expert biotechnology laboratory assistant. Provide concise, scientifically accurate, markdown-formatted answers.",
+      system:
+        "You are an expert biotechnology laboratory assistant. Provide concise, scientifically accurate, markdown-formatted answers.",
       prompt: data.prompt,
     });
     return { text };
