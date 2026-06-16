@@ -1,12 +1,12 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Plus, Trash2, MessageSquare, Copy, RefreshCcw, Menu, ChevronLeft } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Copy, RefreshCcw, Menu, ChevronLeft, History } from "lucide-react";
 
 import { SiteHeader, SiteFooter } from "@/components/site-chrome";
 import { Button } from "@/components/ui/button";
@@ -28,24 +28,25 @@ export const Route = createFileRoute("/assistant")({
   head: () => ({
     meta: [
       { title: "AI Lab Assistant – BioCalc AI" },
-      { name: "description", content: "Threaded conversations with an expert biotechnology AI assistant. Streaming answers with markdown, history, and export." },
+      { name: "description", content: "Chat with a biotechnology AI lab assistant. Practical, accurate answers for PCR, cloning, CRISPR, calculations, and protocols." },
     ],
   }),
   component: AssistantPage,
 });
 
 const QUICK_PROMPTS = [
-  "Explain the steps of a standard Gibson assembly cloning protocol.",
-  "How do I optimize PCR with a high-GC template?",
-  "What controls should I include in a Western blot?",
-  "Walk me through designing CRISPR sgRNAs for a knockout.",
+  "Explain PCR",
+  "Gibson Assembly Protocol",
+  "Calculate Molarity",
+  "Prepare 1X TAE Buffer",
+  "Explain CRISPR-Cas9",
 ];
 
 function AssistantPage() {
-  const nav = useNavigate();
   const qc = useQueryClient();
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -72,16 +73,24 @@ function AssistantPage() {
     enabled: authed === true,
   });
 
-  // Pick or create an active thread
-  useEffect(() => {
-    if (authed !== true || activeId) return;
-    if (threadsQ.isSuccess) {
-      if (threadsQ.data.length > 0) setActiveId(threadsQ.data[0].id);
-      else {
-        createFn({ data: {} }).then((t) => { setActiveId(t.id); qc.invalidateQueries({ queryKey: ["threads"] }); });
-      }
-    }
-  }, [authed, threadsQ.isSuccess, threadsQ.data, activeId, createFn, qc]);
+  async function startNewChat(initialPrompt?: string) {
+    const t = await createFn({ data: {} });
+    setActiveId(t.id);
+    setPendingPrompt(initialPrompt ?? null);
+    qc.invalidateQueries({ queryKey: ["threads"] });
+    setSidebarOpen(false);
+  }
+
+  function openThread(id: string) {
+    setPendingPrompt(null);
+    setActiveId(id);
+    setSidebarOpen(false);
+  }
+
+  function backToWelcome() {
+    setActiveId(null);
+    setPendingPrompt(null);
+  }
 
   if (authed === false) {
     return (
@@ -114,20 +123,20 @@ function AssistantPage() {
             sidebarOpen ? "fixed inset-0 z-50 lg:static" : "hidden lg:flex"
           )}>
             <div className="p-3 flex items-center justify-between border-b">
-              <span className="font-display font-semibold text-sm">Conversations</span>
+              <span className="font-display font-semibold text-sm flex items-center gap-2"><History className="h-4 w-4" />Chat History</span>
               <div className="flex gap-1">
                 <Button size="icon-sm" variant="ghost" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button size="icon-sm" variant="ghost" onClick={async () => {
-                  const t = await createFn({ data: {} });
-                  setActiveId(t.id);
-                  qc.invalidateQueries({ queryKey: ["threads"] });
-                  setSidebarOpen(false);
-                }} title="New chat">
+                <Button size="icon-sm" variant="ghost" onClick={() => startNewChat()} title="New chat">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+            <div className="p-2 border-b">
+              <Button size="sm" variant="outline" className="w-full justify-start gap-2" onClick={() => startNewChat()}>
+                <Plus className="h-4 w-4" /> New Chat
+              </Button>
             </div>
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
@@ -137,7 +146,7 @@ function AssistantPage() {
                     activeId === t.id && "bg-muted"
                   )}>
                     <button
-                      onClick={() => { setActiveId(t.id); setSidebarOpen(false); }}
+                      onClick={() => openThread(t.id)}
                       className="flex-1 text-left text-sm px-3 py-2 truncate"
                     >
                       {t.title}
@@ -169,13 +178,27 @@ function AssistantPage() {
                 <Logo className="h-6 w-6" />
                 <span className="font-display font-semibold">BioCalc Assistant</span>
               </div>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => startNewChat()} className="gap-1">
+                  <Plus className="h-4 w-4" /> New Chat
+                </Button>
+                {activeId && (
+                  <Button size="sm" variant="ghost" onClick={backToWelcome} title="Clear">
+                    Clear
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {activeId && token ? (
+            {!activeId ? (
+              <WelcomeScreen onPick={(p) => startNewChat(p)} />
+            ) : token ? (
               <ChatWindow
                 key={activeId}
                 threadId={activeId}
                 token={token}
+                pendingPrompt={pendingPrompt}
+                onPromptConsumed={() => setPendingPrompt(null)}
                 loadInitial={async () => {
                   const rows = await getMsgsFn({ data: { threadId: activeId } });
                   return rows.map((r) => ({
@@ -194,7 +217,33 @@ function AssistantPage() {
   );
 }
 
-function ChatWindow({ threadId, token, loadInitial }: { threadId: string; token: string; loadInitial: () => Promise<UIMessage[]>; }) {
+function WelcomeScreen({ onPick }: { onPick: (prompt: string) => void }) {
+  return (
+    <div className="flex-1 flex items-center justify-center p-6">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-xl">
+        <div className="text-4xl mb-3">🧬</div>
+        <h1 className="font-display font-bold text-2xl sm:text-3xl">BioCalc AI Lab Assistant</h1>
+        <p className="text-muted-foreground text-sm mt-3">
+          Ask any biotechnology, molecular biology, microbiology, genetics, PCR, cloning, or laboratory question.
+        </p>
+        <div className="flex flex-wrap gap-2 justify-center mt-6">
+          {QUICK_PROMPTS.map((q) => (
+            <button
+              key={q}
+              onClick={() => onPick(q)}
+              className="text-sm px-3 py-1.5 rounded-full border bg-background hover:bg-muted hover:border-primary/40 transition-colors"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground mt-6">Open <History className="inline h-3 w-3" /> Chat History from the sidebar to revisit a previous conversation.</p>
+      </motion.div>
+    </div>
+  );
+}
+
+function ChatWindow({ threadId, token, loadInitial, pendingPrompt, onPromptConsumed }: { threadId: string; token: string; loadInitial: () => Promise<UIMessage[]>; pendingPrompt: string | null; onPromptConsumed: () => void; }) {
   const [initial, setInitial] = useState<UIMessage[] | null>(null);
 
   useEffect(() => {
@@ -208,10 +257,10 @@ function ChatWindow({ threadId, token, loadInitial }: { threadId: string; token:
     return <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading conversation…</div>;
   }
 
-  return <ChatSession key={`${threadId}:${initial.length}`} threadId={threadId} token={token} initial={initial} />;
+  return <ChatSession key={threadId} threadId={threadId} token={token} initial={initial} pendingPrompt={pendingPrompt} onPromptConsumed={onPromptConsumed} />;
 }
 
-function ChatSession({ threadId, token, initial }: { threadId: string; token: string; initial: UIMessage[]; }) {
+function ChatSession({ threadId, token, initial, pendingPrompt, onPromptConsumed }: { threadId: string; token: string; initial: UIMessage[]; pendingPrompt: string | null; onPromptConsumed: () => void; }) {
   const transport = useMemo(() => new DefaultChatTransport({
     api: "/api/chat",
     headers: () => ({ Authorization: `Bearer ${token}` }),
@@ -227,6 +276,15 @@ function ChatSession({ threadId, token, initial }: { threadId: string; token: st
 
   useEffect(() => { if (error) toast.error(error.message); }, [error]);
 
+  const sentPendingRef = useRef(false);
+  useEffect(() => {
+    if (pendingPrompt && !sentPendingRef.current && initial.length === 0) {
+      sentPendingRef.current = true;
+      sendMessage({ text: pendingPrompt });
+      onPromptConsumed();
+    }
+  }, [pendingPrompt, initial.length, sendMessage, onPromptConsumed]);
+
   const isLoading = status === "submitted" || status === "streaming";
 
   async function handleSubmit(text: string) {
@@ -234,7 +292,6 @@ function ChatSession({ threadId, token, initial }: { threadId: string; token: st
     if (!v || isLoading) return;
     await sendMessage({ text: v });
   }
-
 
   function copyMessage(m: UIMessage) {
     const txt = m.parts.map((p) => p.type === "text" ? p.text : "").join("");
@@ -247,20 +304,6 @@ function ChatSession({ threadId, token, initial }: { threadId: string; token: st
       <div className="flex-1 flex flex-col min-h-0">
         <Conversation className="flex-1">
           <ConversationContent>
-            {(initial?.length === 0 && messages.length === 0) && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-12 text-center max-w-xl mx-auto">
-                <Logo className="h-12 w-12 mx-auto" />
-                <h2 className="font-display font-bold text-2xl mt-4">Ask anything about the lab</h2>
-                <p className="text-muted-foreground text-sm mt-2">Molecular biology, microbiology, biochemistry, calculations, troubleshooting — get expert, scientifically accurate answers.</p>
-                <div className="grid sm:grid-cols-2 gap-2 mt-6 text-left">
-                  {QUICK_PROMPTS.map((q) => (
-                    <button key={q} onClick={() => sendMessage({ text: q })} className="text-sm p-3 rounded-lg border hover:bg-muted hover:border-primary/40 transition-colors">
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
             {messages.map((m, i) => {
               const text = m.parts.map((p) => p.type === "text" ? p.text : "").join("");
               return (
