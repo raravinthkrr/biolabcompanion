@@ -91,14 +91,21 @@ function ProtocolsPage() {
   const saved = useQuery({ queryKey: ["protocols"], queryFn: () => listFn({}), enabled: authed === true });
 
   async function handleUpload(file: File) {
+    setUploading(true);
+    setFileName(file.name);
     try {
-      setBusy(true);
       const t = await readFile(file);
+      if (!t.trim()) throw new Error("No readable text found in file.");
       setText(t);
       if (!title) setTitle(file.name.replace(/\.[^.]+$/, ""));
-      toast.success("File loaded.");
-    } catch (e) { toast.error("Something went wrong. Please try again."); }
-    finally { setBusy(false); }
+      toast.success(`Loaded ${file.name}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to read file.";
+      console.error("file upload failed:", e);
+      toast.error(msg);
+      setFileName(null);
+    }
+    finally { setUploading(false); }
   }
 
   async function handleSummarize() {
