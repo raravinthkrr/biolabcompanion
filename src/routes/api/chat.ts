@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createLovableAiGatewayProvider, getLovableAiGatewayResponseHeaders, withLovableAiGatewayRunIdHeader, AI_MODELS } from "@/lib/ai-gateway.server";
+import { createLovableAiGatewayProvider, AI_MODELS } from "@/lib/ai-gateway.server";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 
 const SYSTEM_PROMPT = `You are BioCalc AI, a professional biotechnology laboratory assistant. You help biotechnology students, researchers, and laboratory professionals. Your answers should be accurate, practical, concise, and easy to understand. Do not write like a research paper unless explicitly requested. Prefer structured sections, bullet points, numbered protocols, and simple explanations. Never expose raw markdown or LaTeX formatting. Always produce human-readable output.
