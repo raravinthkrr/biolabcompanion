@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { summarizeProtocol, type ProtocolSummary } from "@/lib/ai.functions";
 import { listProtocols, saveProtocol, deleteProtocol } from "@/lib/data.functions";
 import { exportProtocolPdf, downloadText } from "@/lib/export";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/protocols")({
   head: () => ({
@@ -28,35 +29,45 @@ export const Route = createFileRoute("/protocols")({
   component: ProtocolsPage,
 });
 
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 async function readFile(file: File): Promise<string> {
-  if (file.type === "text/plain" || file.name.endsWith(".txt")) return file.text();
-  if (file.name.endsWith(".pdf")) {
+  if (file.size > MAX_FILE_BYTES) {
+    throw new Error("File too large (max 10 MB).");
+  }
+  const name = file.name.toLowerCase();
+  if (file.type === "text/plain" || name.endsWith(".txt") || name.endsWith(".md") || name.endsWith(".markdown")) {
+    return file.text();
+  }
+  if (name.endsWith(".pdf")) {
+    // Use the legacy build + vite ?url worker for reliable browser loading.
     const pdfjs = await import("pdfjs-dist");
+    const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default as string;
     type PdfMod = {
-      GlobalWorkerOptions?: { workerSrc: string };
-      getDocument: (s: { data: ArrayBuffer; disableWorker?: boolean }) => {
-        promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str: string }[] }> }> }>;
+      GlobalWorkerOptions: { workerSrc: string };
+      getDocument: (s: { data: ArrayBuffer }) => {
+        promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: Array<{ str?: string }> }> }> }>;
       };
     };
     const lib = pdfjs as unknown as PdfMod;
-    if (lib.GlobalWorkerOptions) lib.GlobalWorkerOptions.workerSrc = "";
+    lib.GlobalWorkerOptions.workerSrc = workerUrl;
     const buf = await file.arrayBuffer();
-    const doc = await lib.getDocument({ data: buf, disableWorker: true }).promise;
+    const doc = await lib.getDocument({ data: buf }).promise;
     let text = "";
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
-      text += content.items.map((it) => it.str).join(" ") + "\n";
+      text += content.items.map((it) => it.str ?? "").join(" ") + "\n";
     }
     return text;
   }
-  if (file.name.endsWith(".docx")) {
+  if (name.endsWith(".docx")) {
     const mammoth = await import("mammoth") as unknown as { extractRawText: (o: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> };
     const buf = await file.arrayBuffer();
     const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
     return value;
   }
-  throw new Error("Unsupported file type. Use .txt, .pdf, or .docx");
+  throw new Error("Unsupported file type. Use .txt, .md, .pdf, or .docx");
 }
 
 function ProtocolsPage() {
@@ -65,6 +76,8 @@ function ProtocolsPage() {
   const [title, setTitle] = useState("");
   const [result, setResult] = useState<ProtocolSummary | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   const summarizeFn = useServerFn(summarizeProtocol);
   const listFn = useServerFn(listProtocols);
@@ -79,14 +92,21 @@ function ProtocolsPage() {
   const saved = useQuery({ queryKey: ["protocols"], queryFn: () => listFn({}), enabled: authed === true });
 
   async function handleUpload(file: File) {
+    setUploading(true);
+    setFileName(file.name);
     try {
-      setBusy(true);
       const t = await readFile(file);
+      if (!t.trim()) throw new Error("No readable text found in file.");
       setText(t);
       if (!title) setTitle(file.name.replace(/\.[^.]+$/, ""));
-      toast.success("File loaded.");
-    } catch (e) { toast.error("Something went wrong. Please try again."); }
-    finally { setBusy(false); }
+      toast.success(`Loaded ${file.name}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to read file.";
+      console.error("file upload failed:", e);
+      toast.error(msg);
+      setFileName(null);
+    }
+    finally { setUploading(false); }
   }
 
   async function handleSummarize() {
@@ -135,11 +155,20 @@ function ProtocolsPage() {
               <Textarea id="prot" rows={14} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste your protocol here, or upload a file below…" />
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex items-center gap-2 cursor-pointer text-sm px-3 py-2 rounded-md border hover:bg-muted">
-                <Upload className="h-4 w-4" /> Upload .txt / .pdf / .docx
-                <input type="file" accept=".txt,.pdf,.docx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
+              <label className={cn("inline-flex items-center gap-2 cursor-pointer text-sm px-3 py-2 rounded-md border hover:bg-muted", uploading && "opacity-60 pointer-events-none")}>
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploading ? "Reading file…" : "Upload .txt / .md / .pdf / .docx"}
+                <input
+                  type="file"
+                  accept=".txt,.md,.markdown,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }}
+                />
               </label>
-              <Button className="bg-gradient-primary text-primary-foreground ml-auto" onClick={handleSummarize} disabled={busy}>
+              {fileName && !uploading && (
+                <span className="text-xs text-muted-foreground truncate max-w-[200px]" title={fileName}>{fileName}</span>
+              )}
+              <Button className="bg-gradient-primary text-primary-foreground ml-auto" onClick={handleSummarize} disabled={busy || uploading}>
                 {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />} Summarize
               </Button>
             </div>

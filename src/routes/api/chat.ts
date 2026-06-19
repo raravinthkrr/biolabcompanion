@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createLovableAiGatewayProvider, getLovableAiGatewayResponseHeaders, withLovableAiGatewayRunIdHeader, AI_MODELS } from "@/lib/ai-gateway.server";
+import { createLovableAiGatewayProvider, AI_MODELS } from "@/lib/ai-gateway.server";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 
 const SYSTEM_PROMPT = `You are BioCalc AI, a professional biotechnology laboratory assistant. You help biotechnology students, researchers, and laboratory professionals. Your answers should be accurate, practical, concise, and easy to understand. Do not write like a research paper unless explicitly requested. Prefer structured sections, bullet points, numbered protocols, and simple explanations. Never expose raw markdown or LaTeX formatting. Always produce human-readable output.
@@ -93,33 +93,29 @@ export const Route = createFileRoute("/api/chat")({
         const messages: UIMessage[] = body.messages;
         const threadId: string = body.threadId;
 
-        // Verify the thread belongs to this user
-        const { data: thread, error: threadErr } = await sb
-          .from("chat_threads")
-          .select("id, user_id")
-          .eq("id", body.threadId)
-          .single();
-        if (threadErr || !thread) {
-          return new Response("Thread not found", { status: 404 });
-        }
+        // Skip explicit thread-ownership check; RLS on chat_messages enforces it
+        // on insert. This removes a round-trip before streaming starts.
 
         const key = process.env.LOVABLE_API_KEY;
         if (!key) return new Response("Missing LOVABLE_API_KEY", { status: 500 });
         const gateway = createLovableAiGatewayProvider(key);
         const model = gateway(AI_MODELS.chat);
 
+        // Trim history sent to the model: keep last 20 messages to reduce TTFT
+        // and token cost. Persisted history in DB is untouched.
+        const TRIM = 20;
+        const trimmed = messages.length > TRIM ? messages.slice(-TRIM) : messages;
+
         const result = streamText({
           model,
           system: SYSTEM_PROMPT,
-          messages: await convertToModelMessages(messages),
+          messages: await convertToModelMessages(trimmed),
         });
 
-        const response = result.toUIMessageStreamResponse({
+        return result.toUIMessageStreamResponse({
           originalMessages: messages,
           onFinish: async ({ messages: finalMessages }) => {
             try {
-              // Persist any new messages: those with IDs we haven't seen in DB.
-              // Simplest: insert the last user message (if not already saved) and the assistant reply.
               const lastUser = [...messages].reverse().find((m) => m.role === "user");
               const lastAssistant = finalMessages[finalMessages.length - 1];
 
@@ -130,7 +126,6 @@ export const Route = createFileRoute("/api/chat")({
               if (lastAssistant && lastAssistant.role === "assistant") {
                 rowsToInsert.push({ thread_id: threadId, user_id: userId, role: "assistant", parts: lastAssistant.parts });
               }
-              // Only insert the user msg if this thread has no messages OR last DB message is assistant (avoid dupes).
               const { data: existing } = await sb
                 .from("chat_messages")
                 .select("id, role, created_at")
@@ -148,7 +143,6 @@ export const Route = createFileRoute("/api/chat")({
                 const { error: insErr } = await sb.from("chat_messages").insert(filtered as never);
                 if (insErr) console.error("chat_messages insert error:", insErr.message);
               }
-              // Bump thread updated_at + auto-title from first user msg
               const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
               if (lastUser && (!existing || existing.length === 0)) {
                 const text = lastUser.parts.map((p) => (p.type === "text" ? p.text : "")).join(" ").trim();
@@ -159,10 +153,7 @@ export const Route = createFileRoute("/api/chat")({
               console.error("onFinish persist failed:", e);
             }
           },
-          headers: getLovableAiGatewayResponseHeaders(undefined),
         });
-
-        return withLovableAiGatewayRunIdHeader(response, gateway);
       },
     },
   },
