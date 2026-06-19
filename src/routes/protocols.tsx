@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { summarizeProtocol, type ProtocolSummary } from "@/lib/ai.functions";
 import { listProtocols, saveProtocol, deleteProtocol } from "@/lib/data.functions";
 import { exportProtocolPdf, downloadText } from "@/lib/export";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/protocols")({
   head: () => ({
