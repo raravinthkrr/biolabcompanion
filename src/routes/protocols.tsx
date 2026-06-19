@@ -154,11 +154,20 @@ function ProtocolsPage() {
               <Textarea id="prot" rows={14} value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste your protocol here, or upload a file below…" />
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex items-center gap-2 cursor-pointer text-sm px-3 py-2 rounded-md border hover:bg-muted">
-                <Upload className="h-4 w-4" /> Upload .txt / .pdf / .docx
-                <input type="file" accept=".txt,.pdf,.docx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
+              <label className={cn("inline-flex items-center gap-2 cursor-pointer text-sm px-3 py-2 rounded-md border hover:bg-muted", uploading && "opacity-60 pointer-events-none")}>
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploading ? "Reading file…" : "Upload .txt / .md / .pdf / .docx"}
+                <input
+                  type="file"
+                  accept=".txt,.md,.markdown,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }}
+                />
               </label>
-              <Button className="bg-gradient-primary text-primary-foreground ml-auto" onClick={handleSummarize} disabled={busy}>
+              {fileName && !uploading && (
+                <span className="text-xs text-muted-foreground truncate max-w-[200px]" title={fileName}>{fileName}</span>
+              )}
+              <Button className="bg-gradient-primary text-primary-foreground ml-auto" onClick={handleSummarize} disabled={busy || uploading}>
                 {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />} Summarize
               </Button>
             </div>
