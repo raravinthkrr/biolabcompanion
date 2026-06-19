@@ -28,35 +28,45 @@ export const Route = createFileRoute("/protocols")({
   component: ProtocolsPage,
 });
 
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 async function readFile(file: File): Promise<string> {
-  if (file.type === "text/plain" || file.name.endsWith(".txt")) return file.text();
-  if (file.name.endsWith(".pdf")) {
+  if (file.size > MAX_FILE_BYTES) {
+    throw new Error("File too large (max 10 MB).");
+  }
+  const name = file.name.toLowerCase();
+  if (file.type === "text/plain" || name.endsWith(".txt") || name.endsWith(".md") || name.endsWith(".markdown")) {
+    return file.text();
+  }
+  if (name.endsWith(".pdf")) {
+    // Use the legacy build + vite ?url worker for reliable browser loading.
     const pdfjs = await import("pdfjs-dist");
+    const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default as string;
     type PdfMod = {
-      GlobalWorkerOptions?: { workerSrc: string };
-      getDocument: (s: { data: ArrayBuffer; disableWorker?: boolean }) => {
-        promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: { str: string }[] }> }> }>;
+      GlobalWorkerOptions: { workerSrc: string };
+      getDocument: (s: { data: ArrayBuffer }) => {
+        promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: Array<{ str?: string }> }> }> }>;
       };
     };
     const lib = pdfjs as unknown as PdfMod;
-    if (lib.GlobalWorkerOptions) lib.GlobalWorkerOptions.workerSrc = "";
+    lib.GlobalWorkerOptions.workerSrc = workerUrl;
     const buf = await file.arrayBuffer();
-    const doc = await lib.getDocument({ data: buf, disableWorker: true }).promise;
+    const doc = await lib.getDocument({ data: buf }).promise;
     let text = "";
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
       const content = await page.getTextContent();
-      text += content.items.map((it) => it.str).join(" ") + "\n";
+      text += content.items.map((it) => it.str ?? "").join(" ") + "\n";
     }
     return text;
   }
-  if (file.name.endsWith(".docx")) {
+  if (name.endsWith(".docx")) {
     const mammoth = await import("mammoth") as unknown as { extractRawText: (o: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> };
     const buf = await file.arrayBuffer();
     const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
     return value;
   }
-  throw new Error("Unsupported file type. Use .txt, .pdf, or .docx");
+  throw new Error("Unsupported file type. Use .txt, .md, .pdf, or .docx");
 }
 
 function ProtocolsPage() {
