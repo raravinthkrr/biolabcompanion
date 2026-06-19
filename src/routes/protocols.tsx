@@ -75,6 +75,8 @@ function ProtocolsPage() {
   const [title, setTitle] = useState("");
   const [result, setResult] = useState<ProtocolSummary | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   const summarizeFn = useServerFn(summarizeProtocol);
   const listFn = useServerFn(listProtocols);
