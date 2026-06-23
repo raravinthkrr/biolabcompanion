@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Plus, Trash2, MessageSquare, Copy, RefreshCcw, Menu, ChevronLeft, History } from "lucide-react";
+import { Plus, Trash2, MessageSquare, Copy, RefreshCcw, Menu, ChevronLeft, History, Square, Pencil } from "lucide-react";
 
 import { SiteHeader, SiteFooter } from "@/components/site-chrome";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Logo } from "@/components/brand";
 
 import { supabase } from "@/integrations/supabase/client";
-import { listThreads, createThread, deleteThread, getThreadMessages } from "@/lib/data.functions";
+import { listThreads, createThread, deleteThread, getThreadMessages, renameThread } from "@/lib/data.functions";
 import { cn } from "@/lib/utils";
 import { exportChatMarkdown } from "@/lib/chat-export";
 
@@ -54,6 +54,7 @@ function AssistantPage() {
   const createFn = useServerFn(createThread);
   const deleteFn = useServerFn(deleteThread);
   const getMsgsFn = useServerFn(getThreadMessages);
+  const renameFn = useServerFn(renameThread);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -75,8 +76,8 @@ function AssistantPage() {
 
   async function startNewChat(initialPrompt?: string) {
     const t = await createFn({ data: {} });
-    setActiveId(t.id);
     setPendingPrompt(initialPrompt ?? null);
+    setActiveId(t.id);
     qc.invalidateQueries({ queryKey: ["threads"] });
     setSidebarOpen(false);
   }
@@ -90,6 +91,17 @@ function AssistantPage() {
   function backToWelcome() {
     setActiveId(null);
     setPendingPrompt(null);
+  }
+
+  async function handleRename(id: string, currentTitle: string) {
+    const next = prompt("Rename conversation", currentTitle);
+    if (!next || next.trim() === "" || next === currentTitle) return;
+    try {
+      await renameFn({ data: { id, title: next.trim() } });
+      qc.invalidateQueries({ queryKey: ["threads"] });
+    } catch {
+      toast.error("Could not rename");
+    }
   }
 
   if (authed === false) {
@@ -115,14 +127,15 @@ function AssistantPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
-      <div className="flex-1 container mx-auto px-0 sm:px-4 py-0 sm:py-6 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-0 sm:gap-4 min-h-[calc(100vh-12rem)]">
+      <div className="flex-1 w-full container mx-auto px-0 sm:px-4 py-0 sm:py-6 max-w-7xl min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-0 sm:gap-4 h-[calc(100vh-12rem)] min-h-[600px]">
           {/* Sidebar */}
           <aside className={cn(
-            "border-r lg:border lg:rounded-xl bg-card flex flex-col",
+            "border-r lg:border lg:rounded-xl bg-card flex flex-col overflow-hidden",
+            "w-full lg:w-[280px] lg:max-w-[280px]",
             sidebarOpen ? "fixed inset-0 z-50 lg:static" : "hidden lg:flex"
           )}>
-            <div className="p-3 flex items-center justify-between border-b">
+            <div className="p-3 flex items-center justify-between border-b shrink-0">
               <span className="font-display font-semibold text-sm flex items-center gap-2"><History className="h-4 w-4" />Chat History</span>
               <div className="flex gap-1">
                 <Button size="icon-sm" variant="ghost" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
@@ -133,12 +146,12 @@ function AssistantPage() {
                 </Button>
               </div>
             </div>
-            <div className="p-2 border-b">
+            <div className="p-2 border-b shrink-0">
               <Button size="sm" variant="outline" className="w-full justify-start gap-2" onClick={() => startNewChat()}>
                 <Plus className="h-4 w-4" /> New Chat
               </Button>
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="p-2 space-y-1">
                 {threadsQ.data?.map((t) => (
                   <div key={t.id} className={cn(
@@ -147,20 +160,27 @@ function AssistantPage() {
                   )}>
                     <button
                       onClick={() => openThread(t.id)}
-                      className="flex-1 text-left text-sm px-3 py-2 truncate"
+                      className="flex-1 min-w-0 text-left text-sm px-3 py-2 truncate"
+                      title={t.title}
                     >
                       {t.title}
                     </button>
-                    <Button size="icon-sm" variant="ghost" className="opacity-0 group-hover:opacity-100"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (!confirm("Delete this conversation?")) return;
-                        await deleteFn({ data: { id: t.id } });
-                        if (activeId === t.id) setActiveId(null);
-                        qc.invalidateQueries({ queryKey: ["threads"] });
-                      }}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex shrink-0 opacity-0 group-hover:opacity-100">
+                      <Button size="icon-sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleRename(t.id, t.title); }} title="Rename">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon-sm" variant="ghost"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!confirm("Delete this conversation?")) return;
+                          await deleteFn({ data: { id: t.id } });
+                          if (activeId === t.id) setActiveId(null);
+                          qc.invalidateQueries({ queryKey: ["threads"] });
+                        }}
+                        title="Delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {threadsQ.data?.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No chats yet.</p>}
@@ -169,22 +189,22 @@ function AssistantPage() {
           </aside>
 
           {/* Chat */}
-          <main className="flex flex-col lg:rounded-xl bg-card border min-h-[600px]">
-            <div className="flex items-center justify-between p-3 border-b">
-              <div className="flex items-center gap-2">
+          <main className="flex flex-col lg:rounded-xl bg-card border min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between p-3 border-b shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <Button size="icon-sm" variant="ghost" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
                   <Menu className="h-4 w-4" />
                 </Button>
-                <Logo className="h-6 w-6" />
-                <span className="font-display font-semibold">BioCalc Assistant</span>
+                <Logo className="h-6 w-6 shrink-0" />
+                <span className="font-display font-semibold truncate">BioCalc Assistant</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <Button size="sm" variant="ghost" onClick={() => startNewChat()} className="gap-1">
                   <Plus className="h-4 w-4" /> New Chat
                 </Button>
                 {activeId && (
-                  <Button size="sm" variant="ghost" onClick={backToWelcome} title="Clear">
-                    Clear
+                  <Button size="sm" variant="ghost" onClick={backToWelcome} title="Close chat">
+                    Close
                   </Button>
                 )}
               </div>
@@ -199,12 +219,7 @@ function AssistantPage() {
                 token={token}
                 pendingPrompt={pendingPrompt}
                 onPromptConsumed={() => setPendingPrompt(null)}
-                loadInitial={async () => {
-                  const rows = await getMsgsFn({ data: { threadId: activeId } });
-                  return rows.map((r) => ({
-                    id: r.id, role: r.role as UIMessage["role"], parts: (r.parts as UIMessage["parts"]) ?? [],
-                  })) satisfies UIMessage[];
-                }}
+                getMsgsFn={getMsgsFn}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading…</div>
@@ -219,7 +234,7 @@ function AssistantPage() {
 
 function WelcomeScreen({ onPick }: { onPick: (prompt: string) => void }) {
   return (
-    <div className="flex-1 flex items-center justify-center p-6">
+    <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-xl">
         <div className="text-4xl mb-3">🧬</div>
         <h1 className="font-display font-bold text-2xl sm:text-3xl">BioCalc AI Lab Assistant</h1>
@@ -230,6 +245,7 @@ function WelcomeScreen({ onPick }: { onPick: (prompt: string) => void }) {
           {QUICK_PROMPTS.map((q) => (
             <button
               key={q}
+              type="button"
               onClick={() => onPick(q)}
               className="text-sm px-3 py-1.5 rounded-full border bg-background hover:bg-muted hover:border-primary/40 transition-colors"
             >
@@ -243,15 +259,22 @@ function WelcomeScreen({ onPick }: { onPick: (prompt: string) => void }) {
   );
 }
 
-function ChatWindow({ threadId, token, loadInitial, pendingPrompt, onPromptConsumed }: { threadId: string; token: string; loadInitial: () => Promise<UIMessage[]>; pendingPrompt: string | null; onPromptConsumed: () => void; }) {
+function ChatWindow({ threadId, token, getMsgsFn, pendingPrompt, onPromptConsumed }: { threadId: string; token: string; getMsgsFn: (args: { data: { threadId: string } }) => Promise<Array<{ id: string; role: string; parts: unknown }>>; pendingPrompt: string | null; onPromptConsumed: () => void; }) {
   const [initial, setInitial] = useState<UIMessage[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setInitial(null);
-    loadInitial().then((rows) => { if (!cancelled) setInitial(rows); }).catch(() => { if (!cancelled) setInitial([]); });
+    getMsgsFn({ data: { threadId } })
+      .then((rows) => {
+        if (cancelled) return;
+        setInitial(rows.map((r) => ({
+          id: r.id, role: r.role as UIMessage["role"], parts: (r.parts as UIMessage["parts"]) ?? [],
+        })));
+      })
+      .catch(() => { if (!cancelled) setInitial([]); });
     return () => { cancelled = true; };
-  }, [loadInitial]);
+  }, [threadId, getMsgsFn]);
 
   if (!initial) {
     return <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">Loading conversation…</div>;
@@ -267,7 +290,7 @@ function ChatSession({ threadId, token, initial, pendingPrompt, onPromptConsumed
     body: () => ({ threadId }),
   }), [token, threadId]);
 
-  const { messages, sendMessage, status, regenerate, error } = useChat({
+  const { messages, sendMessage, status, regenerate, stop, error } = useChat({
     id: threadId,
     messages: initial,
     transport,
@@ -276,22 +299,27 @@ function ChatSession({ threadId, token, initial, pendingPrompt, onPromptConsumed
 
   useEffect(() => { if (error) toast.error(error.message); }, [error]);
 
-  const sentPendingRef = useRef(false);
+  const sendRef = useRef(sendMessage);
+  useEffect(() => { sendRef.current = sendMessage; }, [sendMessage]);
+
+  const consumedRef = useRef(false);
   useEffect(() => {
-    if (pendingPrompt && !sentPendingRef.current && initial.length === 0) {
-      sentPendingRef.current = true;
-      sendMessage({ text: pendingPrompt });
-      onPromptConsumed();
-    }
-  }, [pendingPrompt, initial.length, sendMessage, onPromptConsumed]);
+    if (!pendingPrompt) return;
+    if (consumedRef.current) return;
+    if (initial.length > 0) return;
+    consumedRef.current = true;
+    // Fire immediately — no awaits, no extra effects.
+    sendRef.current({ text: pendingPrompt });
+    onPromptConsumed();
+  }, [pendingPrompt, initial.length, onPromptConsumed]);
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  async function handleSubmit(text: string) {
+  const handleSubmit = useCallback((text: string) => {
     const v = text.trim();
     if (!v || isLoading) return;
-    await sendMessage({ text: v });
-  }
+    sendRef.current({ text: v });
+  }, [isLoading]);
 
   function copyMessage(m: UIMessage) {
     const txt = m.parts.map((p) => p.type === "text" ? p.text : "").join("");
@@ -301,19 +329,19 @@ function ChatSession({ threadId, token, initial, pendingPrompt, onPromptConsumed
 
   return (
     <>
-      <div className="flex-1 flex flex-col min-h-0">
-        <Conversation className="flex-1">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
+        <Conversation className="flex-1 min-h-0">
           <ConversationContent>
             {messages.map((m, i) => {
               const text = m.parts.map((p) => p.type === "text" ? p.text : "").join("");
               return (
                 <Message key={m.id} from={m.role}>
-                  <MessageContent>
-                    {m.role === "assistant" ? <Markdown>{text}</Markdown> : <p className="whitespace-pre-wrap">{text}</p>}
-                    {m.role === "assistant" && (
+                  <MessageContent className="max-w-full overflow-hidden">
+                    {m.role === "assistant" ? <Markdown>{text}</Markdown> : <p className="whitespace-pre-wrap break-words">{text}</p>}
+                    {m.role === "assistant" && text.length > 0 && (
                       <div className="flex gap-1 mt-2 -ml-1">
                         <Button size="icon-sm" variant="ghost" onClick={() => copyMessage(m)} title="Copy"><Copy className="h-3.5 w-3.5" /></Button>
-                        {i === messages.length - 1 && (
+                        {i === messages.length - 1 && !isLoading && (
                           <Button size="icon-sm" variant="ghost" onClick={() => regenerate()} title="Regenerate"><RefreshCcw className="h-3.5 w-3.5" /></Button>
                         )}
                       </div>
@@ -334,8 +362,13 @@ function ChatSession({ threadId, token, initial, pendingPrompt, onPromptConsumed
         </Conversation>
       </div>
 
-      <div className="p-3 border-t">
-        <div className="flex justify-end mb-2">
+      <div className="p-3 border-t shrink-0">
+        <div className="flex justify-between items-center mb-2 gap-2">
+          {isLoading ? (
+            <Button variant="outline" size="sm" onClick={() => stop()} className="gap-1">
+              <Square className="h-3.5 w-3.5" /> Stop
+            </Button>
+          ) : <span />}
           <Button variant="ghost" size="sm" onClick={() => exportChatMarkdown(messages)} disabled={messages.length === 0}>Export markdown</Button>
         </div>
         <PromptInput onSubmit={handleSubmit}>
