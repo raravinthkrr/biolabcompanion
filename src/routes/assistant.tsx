@@ -206,6 +206,7 @@ function AssistantPage() {
                   <Button size="sm" variant="ghost" onClick={backToWelcome} title="Close chat">
                     Close
                   </Button>
+                )}
               </div>
             </div>
 
