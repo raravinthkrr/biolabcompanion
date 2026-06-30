@@ -211,7 +211,10 @@ function AssistantPage() {
             </div>
 
             {!activeId ? (
-              <WelcomeScreen onPick={(p) => startNewChat(p)} />
+              <WelcomeScreen
+                onPick={(p) => startNewChat(p)}
+                onSubmit={(p) => startNewChat(p)}
+              />
             ) : token ? (
               <ChatWindow
                 key={activeId}
@@ -232,30 +235,46 @@ function AssistantPage() {
   );
 }
 
-function WelcomeScreen({ onPick }: { onPick: (prompt: string) => void }) {
+function WelcomeScreen({ onPick, onSubmit }: { onPick: (prompt: string) => void; onSubmit: (prompt: string) => void }) {
   return (
-    <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-xl">
-        <div className="text-4xl mb-3">🧬</div>
-        <h1 className="font-display font-bold text-2xl sm:text-3xl">BioCalc AI Lab Assistant</h1>
-        <p className="text-muted-foreground text-sm mt-3">
-          Ask any biotechnology, molecular biology, microbiology, genetics, PCR, cloning, or laboratory question.
-        </p>
-        <div className="flex flex-wrap gap-2 justify-center mt-6">
-          {QUICK_PROMPTS.map((q) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => onPick(q)}
-              className="text-sm px-3 py-1.5 rounded-full border bg-background hover:bg-muted hover:border-primary/40 transition-colors"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground mt-6">Open <History className="inline h-3 w-3" /> Chat History from the sidebar to revisit a previous conversation.</p>
-      </motion.div>
-    </div>
+    <>
+      <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto min-h-0">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-xl w-full">
+          <div className="text-4xl mb-3">🧬</div>
+          <h1 className="font-display font-bold text-2xl sm:text-3xl">BioCalc AI Lab Assistant</h1>
+          <p className="text-muted-foreground text-sm mt-3">
+            Ask any biotechnology, molecular biology, microbiology, genetics, PCR, cloning, or laboratory question.
+          </p>
+          <div className="mt-6">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Suggested questions</div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {QUICK_PROMPTS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => onPick(q)}
+                  className="text-sm px-3 py-1.5 rounded-full border bg-background hover:bg-muted hover:border-primary/40 transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-6">
+            Or type your own question below — open <History className="inline h-3 w-3" /> Chat History to revisit a previous conversation.
+          </p>
+        </motion.div>
+      </div>
+
+      <div className="p-3 border-t shrink-0 bg-card">
+        <PromptInput onSubmit={(text) => { const v = text.trim(); if (v) onSubmit(v); }}>
+          <PromptInputTextarea placeholder="Type your biotechnology question…" />
+          <PromptInputFooter className="justify-end">
+            <PromptInputSubmit status="ready" />
+          </PromptInputFooter>
+        </PromptInput>
+      </div>
+    </>
   );
 }
 
