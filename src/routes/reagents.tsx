@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { reagentHelper, type ReagentRecipe } from "@/lib/ai.functions";
+import { exportReagentPdf } from "@/lib/export";
 import { NeedAuth } from "./protocols";
 
 export const Route = createFileRoute("/reagents")({
