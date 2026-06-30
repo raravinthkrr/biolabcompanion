@@ -108,7 +108,10 @@ function ReagentPage() {
                   <h2 className="text-xl font-display font-bold">{out.reagent_name}</h2>
                   <p className="text-muted-foreground">Final volume: {out.final_volume}</p>
                 </div>
-                <Button size="sm" variant="outline" onClick={copyAll}><Copy className="h-4 w-4 mr-1" /> Copy</Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => exportReagentPdf(out)}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
+                  <Button size="sm" variant="outline" onClick={copyAll}><Copy className="h-4 w-4 mr-1" /> Copy</Button>
+                </div>
               </div>
               <div>
                 <div className="font-display font-semibold mb-2">Ingredients</div>
