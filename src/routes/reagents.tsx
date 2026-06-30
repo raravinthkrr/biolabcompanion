@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { FlaskConical, Loader2, Copy } from "lucide-react";
+import { FlaskConical, Loader2, Copy, FileDown } from "lucide-react";
 
 import { SiteHeader, SiteFooter } from "@/components/site-chrome";
 import { Card } from "@/components/ui/card";
