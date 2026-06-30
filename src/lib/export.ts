@@ -1,4 +1,6 @@
 import jsPDF from "jspdf";
+import { stripMarkdown, flattenForDisplay, formatScalar } from "./format";
+import type { ProtocolSummary, ExperimentPlan, ReagentRecipe } from "./ai.functions";
 
 export interface ExportCalcInput {
   label: string;
@@ -8,61 +10,230 @@ export interface ExportCalcInput {
   summary?: string;
 }
 
-export function exportCalculationPdf(d: ExportCalcInput) {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  let y = 60;
-  const line = (txt: string, opts?: { bold?: boolean; size?: number }) => {
-    doc.setFontSize(opts?.size ?? 11);
-    doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
-    const wrapped = doc.splitTextToSize(txt, 480);
-    doc.text(wrapped, 60, y);
-    y += wrapped.length * (opts?.size ?? 11) * 1.2 + 4;
-    if (y > 760) { doc.addPage(); y = 60; }
-  };
-
-  line("BioCalc AI", { bold: true, size: 16 });
-  line(d.label, { bold: true, size: 13 });
-  line(new Date().toLocaleString(), { size: 9 });
-  y += 8;
-
-  if (d.formula) { line("Formula:", { bold: true }); line(d.formula); y += 4; }
-  if (d.summary) { line("Summary:", { bold: true }); line(d.summary); y += 4; }
-
-  line("Inputs:", { bold: true });
-  Object.entries(d.inputs).forEach(([k, v]) => line(`• ${k}: ${stringify(v)}`));
-  y += 4;
-  line("Results:", { bold: true });
-  Object.entries(d.outputs).forEach(([k, v]) => line(`• ${k}: ${stringify(v)}`));
-
-  doc.save(`${d.label.replace(/\s+/g, "_")}_${Date.now()}.pdf`);
+// ============================================================================
+// Low-level PDF writer with consistent typography & pagination
+// ============================================================================
+interface PdfCtx {
+  doc: jsPDF;
+  y: number;
+  pageW: number;
+  pageH: number;
+  margin: number;
+  contentW: number;
 }
 
-export function exportProtocolPdf(title: string, summary: Record<string, unknown>) {
+function newPdf(): PdfCtx {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
-  let y = 60;
-  const add = (txt: string, opts?: { bold?: boolean; size?: number }) => {
-    doc.setFontSize(opts?.size ?? 11);
-    doc.setFont("helvetica", opts?.bold ? "bold" : "normal");
-    const w = doc.splitTextToSize(txt, 480);
-    doc.text(w, 60, y);
-    y += w.length * (opts?.size ?? 11) * 1.25 + 4;
-    if (y > 760) { doc.addPage(); y = 60; }
-  };
-  add("Protocol Summary — BioCalc AI", { bold: true, size: 14 });
-  add(title, { bold: true, size: 12 });
-  add(new Date().toLocaleString(), { size: 9 });
-  y += 6;
-  for (const [k, v] of Object.entries(summary)) {
-    add(humanize(k) + ":", { bold: true });
-    if (Array.isArray(v)) v.forEach((item, i) => add(`${i + 1}. ${stringify(item)}`));
-    else add(stringify(v));
-    y += 4;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 56;
+  return { doc, y: margin, pageW, pageH, margin, contentW: pageW - margin * 2 };
+}
+
+function ensureSpace(ctx: PdfCtx, needed: number) {
+  if (ctx.y + needed > ctx.pageH - ctx.margin) {
+    ctx.doc.addPage();
+    ctx.y = ctx.margin;
   }
-  doc.save(`${title.replace(/\s+/g, "_")}.pdf`);
 }
 
-export function exportPlanPdf(title: string, plan: Record<string, unknown>) {
-  exportProtocolPdf(`Experiment Plan — ${title}`, plan);
+function writeText(ctx: PdfCtx, text: string, opts: { size?: number; bold?: boolean; color?: [number, number, number]; indent?: number; spacing?: number } = {}) {
+  const size = opts.size ?? 11;
+  const lineHeight = size * 1.35;
+  const indent = opts.indent ?? 0;
+  ctx.doc.setFontSize(size);
+  ctx.doc.setFont("helvetica", opts.bold ? "bold" : "normal");
+  if (opts.color) ctx.doc.setTextColor(opts.color[0], opts.color[1], opts.color[2]);
+  else ctx.doc.setTextColor(20, 20, 20);
+  const lines = ctx.doc.splitTextToSize(text, ctx.contentW - indent);
+  for (const ln of lines) {
+    ensureSpace(ctx, lineHeight);
+    ctx.doc.text(ln, ctx.margin + indent, ctx.y);
+    ctx.y += lineHeight;
+  }
+  ctx.y += opts.spacing ?? 2;
+}
+
+function writeHeading(ctx: PdfCtx, text: string, level: 1 | 2 | 3 = 2) {
+  const size = level === 1 ? 20 : level === 2 ? 14 : 12;
+  ctx.y += level === 1 ? 0 : 8;
+  ensureSpace(ctx, size * 1.6);
+  writeText(ctx, text, { size, bold: true, spacing: 6 });
+  if (level === 2) {
+    ctx.doc.setDrawColor(200);
+    ctx.doc.line(ctx.margin, ctx.y - 2, ctx.pageW - ctx.margin, ctx.y - 2);
+    ctx.y += 6;
+  }
+}
+
+function writeMeta(ctx: PdfCtx, text: string) {
+  writeText(ctx, text, { size: 9, color: [120, 120, 120], spacing: 8 });
+}
+
+function writeBullets(ctx: PdfCtx, items: string[]) {
+  for (const raw of items) {
+    const item = stripMarkdown(String(raw ?? "")).trim();
+    if (!item) continue;
+    writeText(ctx, `•  ${item}`, { indent: 8, spacing: 2 });
+  }
+  ctx.y += 4;
+}
+
+function writeNumbered(ctx: PdfCtx, items: string[]) {
+  items.forEach((raw, i) => {
+    const item = stripMarkdown(String(raw ?? "")).trim();
+    if (!item) return;
+    writeText(ctx, `${i + 1}.  ${item}`, { indent: 8, spacing: 2 });
+  });
+  ctx.y += 4;
+}
+
+function writeFooter(ctx: PdfCtx) {
+  const total = ctx.doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    ctx.doc.setPage(i);
+    ctx.doc.setFont("helvetica", "normal");
+    ctx.doc.setFontSize(8);
+    ctx.doc.setTextColor(140);
+    ctx.doc.text("Generated by BioCalc AI", ctx.margin, ctx.pageH - 24);
+    ctx.doc.text(`Page ${i} of ${total}`, ctx.pageW - ctx.margin, ctx.pageH - 24, { align: "right" });
+  }
+}
+
+function safeFilename(s: string) {
+  return s.replace(/[^a-z0-9-_]+/gi, "_").replace(/^_+|_+$/g, "") || "document";
+}
+
+// ============================================================================
+// Public exporters
+// ============================================================================
+
+export function exportCalculationPdf(d: ExportCalcInput) {
+  const ctx = newPdf();
+  writeHeading(ctx, d.label, 1);
+  writeMeta(ctx, new Date().toLocaleString());
+
+  if (d.summary) {
+    writeHeading(ctx, "Summary", 2);
+    writeText(ctx, stripMarkdown(d.summary));
+  }
+  if (d.formula) {
+    writeHeading(ctx, "Formula", 2);
+    writeText(ctx, stripMarkdown(d.formula));
+  }
+
+  writeHeading(ctx, "Inputs", 2);
+  const inputRows = flattenForDisplay(d.inputs);
+  if (inputRows.length === 0) writeText(ctx, "—");
+  else writeBullets(ctx, inputRows.map((r) => `${r.label}: ${r.value}`));
+
+  writeHeading(ctx, "Results", 2);
+  const outRows = flattenForDisplay(d.outputs);
+  if (outRows.length === 0) writeText(ctx, "—");
+  else writeBullets(ctx, outRows.map((r) => `${r.label}: ${r.value}`));
+
+  writeFooter(ctx);
+  ctx.doc.save(`${safeFilename(d.label)}_${Date.now()}.pdf`);
+}
+
+export function exportProtocolPdf(title: string, summary: ProtocolSummary | Record<string, unknown>) {
+  const s = summary as Partial<ProtocolSummary>;
+  const ctx = newPdf();
+  writeHeading(ctx, title || s.title || "Protocol", 1);
+  writeMeta(ctx, `Protocol Summary  •  ${new Date().toLocaleString()}`);
+
+  if (s.summary) {
+    writeHeading(ctx, "Overview", 2);
+    writeText(ctx, stripMarkdown(s.summary));
+  }
+  if (s.materials?.length) { writeHeading(ctx, "Materials", 2); writeBullets(ctx, s.materials); }
+  if (s.reagents?.length) { writeHeading(ctx, "Reagents", 2); writeBullets(ctx, s.reagents); }
+  if (s.steps?.length) { writeHeading(ctx, "Procedure", 2); writeNumbered(ctx, s.steps); }
+  if (s.safety_notes?.length) { writeHeading(ctx, "Safety Notes", 2); writeBullets(ctx, s.safety_notes); }
+  if (s.common_mistakes?.length) { writeHeading(ctx, "Common Mistakes", 2); writeBullets(ctx, s.common_mistakes); }
+  if (s.time_estimate) { writeHeading(ctx, "Estimated Time", 2); writeText(ctx, stripMarkdown(s.time_estimate)); }
+
+  writeFooter(ctx);
+  ctx.doc.save(`${safeFilename(title || "protocol")}.pdf`);
+}
+
+export function exportPlanPdf(title: string, plan: ExperimentPlan | Record<string, unknown>) {
+  const p = plan as Partial<ExperimentPlan>;
+  const ctx = newPdf();
+  writeHeading(ctx, title || p.title || "Experiment Plan", 1);
+  writeMeta(ctx, `Experimental Plan  •  ${new Date().toLocaleString()}`);
+
+  if (p.overview) {
+    writeHeading(ctx, "Objective", 2);
+    writeText(ctx, stripMarkdown(p.overview));
+  }
+  if (p.materials?.length) { writeHeading(ctx, "Materials Required", 2); writeBullets(ctx, p.materials); }
+  if (p.reagents?.length) { writeHeading(ctx, "Reagents", 2); writeBullets(ctx, p.reagents); }
+
+  if (p.workflow?.length) {
+    writeHeading(ctx, "Workflow", 2);
+    p.workflow.forEach((w, i) => {
+      const num = w.step || i + 1;
+      const action = stripMarkdown(String(w.action ?? "")).trim();
+      writeText(ctx, `Step ${num}.  ${action}`, { bold: true, indent: 4, spacing: 1 });
+      if (w.duration) writeText(ctx, `Duration: ${w.duration}`, { size: 10, color: [110, 110, 110], indent: 16, spacing: 4 });
+    });
+    ctx.y += 4;
+  }
+  if (p.controls?.length) { writeHeading(ctx, "Controls", 2); writeBullets(ctx, p.controls); }
+  if (p.expected_outputs?.length) { writeHeading(ctx, "Expected Results", 2); writeBullets(ctx, p.expected_outputs); }
+  if (p.safety?.length) { writeHeading(ctx, "Safety", 2); writeBullets(ctx, p.safety); }
+  if (p.troubleshooting?.length) {
+    writeHeading(ctx, "Troubleshooting", 2);
+    for (const t of p.troubleshooting) {
+      const issue = stripMarkdown(String(t.issue ?? "")).trim();
+      const sol = stripMarkdown(String(t.solution ?? "")).trim();
+      if (!issue && !sol) continue;
+      writeText(ctx, `Issue: ${issue}`, { bold: true, indent: 4, spacing: 1 });
+      writeText(ctx, `Solution: ${sol}`, { indent: 16, spacing: 6 });
+    }
+  }
+  if (p.estimated_timeline || p.estimated_cost) {
+    writeHeading(ctx, "Estimates", 2);
+    if (p.estimated_timeline) writeText(ctx, `Timeline: ${stripMarkdown(p.estimated_timeline)}`);
+    if (p.estimated_cost) writeText(ctx, `Cost: ${stripMarkdown(p.estimated_cost)}`);
+  }
+
+  writeFooter(ctx);
+  ctx.doc.save(`${safeFilename(title || "experiment_plan")}.pdf`);
+}
+
+export function exportReagentPdf(recipe: ReagentRecipe) {
+  const ctx = newPdf();
+  writeHeading(ctx, recipe.reagent_name || "Reagent", 1);
+  writeMeta(ctx, `Reagent Recipe  •  Final volume: ${recipe.final_volume || "—"}  •  ${new Date().toLocaleString()}`);
+
+  if (recipe.ingredients?.length) {
+    writeHeading(ctx, "Ingredients", 2);
+    for (const i of recipe.ingredients) {
+      const name = stripMarkdown(i.name);
+      const amt = stripMarkdown(i.amount);
+      const notes = i.notes ? `  —  ${stripMarkdown(i.notes)}` : "";
+      writeText(ctx, `•  ${name}: ${amt}${notes}`, { indent: 8, spacing: 2 });
+    }
+    ctx.y += 4;
+  }
+  if (recipe.preparation_steps?.length) {
+    writeHeading(ctx, "Preparation", 2);
+    writeNumbered(ctx, recipe.preparation_steps);
+  }
+  if (recipe.storage || recipe.shelf_life) {
+    writeHeading(ctx, "Storage", 2);
+    if (recipe.storage) writeText(ctx, stripMarkdown(recipe.storage));
+    if (recipe.shelf_life) writeText(ctx, `Shelf life: ${stripMarkdown(recipe.shelf_life)}`);
+  }
+  if (recipe.safety?.length) {
+    writeHeading(ctx, "Safety", 2);
+    writeBullets(ctx, recipe.safety);
+  }
+
+  writeFooter(ctx);
+  ctx.doc.save(`${safeFilename(recipe.reagent_name || "reagent")}.pdf`);
 }
 
 export function downloadText(filename: string, text: string, mime = "text/plain") {
@@ -78,18 +249,9 @@ export function exportToCsv(rows: Record<string, unknown>[], filename: string) {
   if (rows.length === 0) { downloadText(filename, ""); return; }
   const headers = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
   const escape = (v: unknown) => {
-    const s = stringify(v).replace(/"/g, '""');
+    const s = formatScalar(v).replace(/"/g, '""');
     return /[",\n]/.test(s) ? `"${s}"` : s;
   };
   const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
   downloadText(filename, csv, "text/csv");
-}
-
-function stringify(v: unknown): string {
-  if (v == null) return "";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
-function humanize(k: string) {
-  return k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
