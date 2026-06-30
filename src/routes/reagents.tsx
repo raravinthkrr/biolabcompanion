@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { FlaskConical, Loader2, Copy } from "lucide-react";
+import { FlaskConical, Loader2, Copy, FileDown } from "lucide-react";
 
 import { SiteHeader, SiteFooter } from "@/components/site-chrome";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { reagentHelper, type ReagentRecipe } from "@/lib/ai.functions";
+import { exportReagentPdf } from "@/lib/export";
 import { NeedAuth } from "./protocols";
 
 export const Route = createFileRoute("/reagents")({
@@ -107,7 +108,10 @@ function ReagentPage() {
                   <h2 className="text-xl font-display font-bold">{out.reagent_name}</h2>
                   <p className="text-muted-foreground">Final volume: {out.final_volume}</p>
                 </div>
-                <Button size="sm" variant="outline" onClick={copyAll}><Copy className="h-4 w-4 mr-1" /> Copy</Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => exportReagentPdf(out)}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
+                  <Button size="sm" variant="outline" onClick={copyAll}><Copy className="h-4 w-4 mr-1" /> Copy</Button>
+                </div>
               </div>
               <div>
                 <div className="font-display font-semibold mb-2">Ingredients</div>
