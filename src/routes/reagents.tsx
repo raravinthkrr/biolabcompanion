@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { reagentHelper, type ReagentRecipe } from "@/lib/ai.functions";
 import { exportReagentPdf } from "@/lib/export";
-import { NeedAuth } from "./protocols";
+import { NeedAuth, AuthLoading } from "./protocols";
 
 export const Route = createFileRoute("/reagents")({
   head: () => ({
@@ -35,14 +35,15 @@ const QUICK = [
 ];
 
 function ReagentPage() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const { user, loading: authLoading } = useAuthUser();
+  const authed = !!user;
   const [q, setQ] = useState("Prepare 500 mL of 1X TAE buffer");
   const [out, setOut] = useState<ReagentRecipe | null>(null);
   const [busy, setBusy] = useState(false);
   const fn = useServerFn(reagentHelper);
 
-  useEffect(() => { supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user)); }, []);
-  if (authed === false) return <NeedAuth title="Reagent Helper" />;
+  if (authLoading) return <AuthLoading />;
+  if (!authed) return <NeedAuth title="Reagent Helper" />;
 
   async function ask(query: string) {
     setBusy(true); setQ(query); setOut(null);
