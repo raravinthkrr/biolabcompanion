@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { summarizeProtocol, type ProtocolSummary } from "@/lib/ai.functions";
 import { listProtocols, saveProtocol, deleteProtocol } from "@/lib/data.functions";
 import { exportProtocolPdf, downloadText } from "@/lib/export";
@@ -71,7 +71,8 @@ async function readFile(file: File): Promise<string> {
 }
 
 function ProtocolsPage() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const { user, loading: authLoading } = useAuthUser();
+  const authed = !!user;
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
   const [result, setResult] = useState<ProtocolSummary | null>(null);
@@ -85,11 +86,7 @@ function ProtocolsPage() {
   const deleteFn = useServerFn(deleteProtocol);
   const qc = useQueryClient();
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user));
-  }, []);
-
-  const saved = useQuery({ queryKey: ["protocols"], queryFn: () => listFn({}), enabled: authed === true });
+  const saved = useQuery({ queryKey: ["protocols"], queryFn: () => listFn({}), enabled: authed });
 
   async function handleUpload(file: File) {
     setUploading(true);
@@ -132,7 +129,8 @@ function ProtocolsPage() {
     toast.success("Saved.");
   }
 
-  if (authed === false) return <NeedAuth title="Protocol Summarizer" />;
+  if (authLoading) return <AuthLoading />;
+  if (!authed) return <NeedAuth title="Protocol Summarizer" />;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -257,6 +255,18 @@ export function NeedAuth({ title }: { title: string }) {
           <p className="text-muted-foreground mt-2">Your work is saved privately to your account.</p>
           <div className="mt-6"><Link to="/auth"><Button className="bg-gradient-primary text-primary-foreground">Sign in</Button></Link></div>
         </Card>
+      </div>
+      <SiteFooter />
+    </div>
+  );
+}
+
+export function AuthLoading() {
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <SiteHeader />
+      <div className="flex-1 flex items-center justify-center p-8" aria-live="polite" aria-busy="true">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
       <SiteFooter />
     </div>
