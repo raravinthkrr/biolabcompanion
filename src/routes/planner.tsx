@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
@@ -13,11 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { planExperiment, type ExperimentPlan } from "@/lib/ai.functions";
 import { listPlans, savePlan, deletePlan } from "@/lib/data.functions";
 import { exportPlanPdf } from "@/lib/export";
-import { NeedAuth } from "./protocols";
+import { NeedAuth, AuthLoading } from "./protocols";
 
 export const Route = createFileRoute("/planner")({
   head: () => ({
@@ -30,7 +30,8 @@ export const Route = createFileRoute("/planner")({
 });
 
 function PlannerPage() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const { user, loading: authLoading } = useAuthUser();
+  const authed = !!user;
   const [goal, setGoal] = useState("Quantify expression of GFP in transfected HEK293 cells");
   const [equipment, setEquipment] = useState("Fluorescence microscope, flow cytometer, plate reader, standard wet lab");
   const [sample, setSample] = useState("Adherent HEK293 cells");
@@ -45,10 +46,10 @@ function PlannerPage() {
   const delFn = useServerFn(deletePlan);
   const qc = useQueryClient();
 
-  useEffect(() => { supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user)); }, []);
-  const saved = useQuery({ queryKey: ["plans"], queryFn: () => listFn({}), enabled: authed === true });
+  const saved = useQuery({ queryKey: ["plans"], queryFn: () => listFn({}), enabled: authed });
 
-  if (authed === false) return <NeedAuth title="Experiment Planner" />;
+  if (authLoading) return <AuthLoading />;
+  if (!authed) return <NeedAuth title="Experiment Planner" />;
 
   async function generate() {
     if (goal.trim().length < 5) { toast.error("Describe your goal."); return; }
