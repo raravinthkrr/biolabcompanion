@@ -129,7 +129,8 @@ function ProtocolsPage() {
     toast.success("Saved.");
   }
 
-  if (authed === false) return <NeedAuth title="Protocol Summarizer" />;
+  if (authLoading) return <AuthLoading />;
+  if (!authed) return <NeedAuth title="Protocol Summarizer" />;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
