@@ -5,6 +5,7 @@ import { BrandLockup } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -21,21 +22,14 @@ export function SiteHeader() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const { user } = useAuthUser();
+  const userEmail = user?.email ?? null;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
-      setUserEmail(session?.user.email ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
   }, []);
 
   return (
