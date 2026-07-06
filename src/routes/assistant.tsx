@@ -45,7 +45,8 @@ const QUICK_PROMPTS = [
 
 function AssistantPage() {
   const qc = useQueryClient();
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const { user, loading: authLoading } = useAuthUser();
+  const authed = !!user;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -58,21 +59,18 @@ function AssistantPage() {
   const renameFn = useServerFn(renameThread);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setAuthed(!!data.session?.user);
-      setToken(data.session?.access_token ?? null);
-    });
+    if (!authed) { setToken(null); return; }
+    supabase.auth.getSession().then(({ data }) => setToken(data.session?.access_token ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
-      setAuthed(!!session?.user);
       setToken(session?.access_token ?? null);
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [authed]);
 
   const threadsQ = useQuery({
     queryKey: ["threads"],
     queryFn: () => listFn({}),
-    enabled: authed === true,
+    enabled: authed,
   });
 
   async function startNewChat(initialPrompt?: string) {
