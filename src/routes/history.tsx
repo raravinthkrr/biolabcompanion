@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -10,11 +10,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { listCalculations, toggleFavoriteCalc, deleteCalculation } from "@/lib/data.functions";
 import { exportToCsv, exportCalculationPdf } from "@/lib/export";
 import { flattenForDisplay, type KV } from "@/lib/format";
-import { NeedAuth } from "./protocols";
+import { NeedAuth, AuthLoading } from "./protocols";
 
 export const Route = createFileRoute("/history")({
   head: () => ({
@@ -27,7 +27,8 @@ export const Route = createFileRoute("/history")({
 });
 
 function HistoryPage() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const { user, loading: authLoading } = useAuthUser();
+  const authed = !!user;
   const [q, setQ] = useState("");
   const [onlyFav, setOnlyFav] = useState(false);
 
@@ -36,8 +37,7 @@ function HistoryPage() {
   const delFn = useServerFn(deleteCalculation);
   const qc = useQueryClient();
 
-  useEffect(() => { supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user)); }, []);
-  const history = useQuery({ queryKey: ["history"], queryFn: () => listFn({}), enabled: authed === true });
+  const history = useQuery({ queryKey: ["history"], queryFn: () => listFn({}), enabled: authed });
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -49,7 +49,8 @@ function HistoryPage() {
     });
   }, [history.data, q, onlyFav]);
 
-  if (authed === false) return <NeedAuth title="Saved history" />;
+  if (authLoading) return <AuthLoading />;
+  if (!authed) return <NeedAuth title="Saved history" />;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
