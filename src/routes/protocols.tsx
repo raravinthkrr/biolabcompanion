@@ -71,7 +71,8 @@ async function readFile(file: File): Promise<string> {
 }
 
 function ProtocolsPage() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const { user, loading: authLoading } = useAuthUser();
+  const authed = !!user;
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
   const [result, setResult] = useState<ProtocolSummary | null>(null);
@@ -85,11 +86,7 @@ function ProtocolsPage() {
   const deleteFn = useServerFn(deleteProtocol);
   const qc = useQueryClient();
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user));
-  }, []);
-
-  const saved = useQuery({ queryKey: ["protocols"], queryFn: () => listFn({}), enabled: authed === true });
+  const saved = useQuery({ queryKey: ["protocols"], queryFn: () => listFn({}), enabled: authed });
 
   async function handleUpload(file: File) {
     setUploading(true);
