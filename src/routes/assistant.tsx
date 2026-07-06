@@ -103,7 +103,19 @@ function AssistantPage() {
     }
   }
 
-  if (authed === false) {
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <SiteHeader />
+        <div className="flex-1 flex items-center justify-center p-8" aria-live="polite" aria-busy="true">
+          <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+        </div>
+        <SiteFooter />
+      </div>
+    );
+  }
+
+  if (!authed) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <SiteHeader />
