@@ -20,6 +20,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Logo } from "@/components/brand";
 
 import { supabase } from "@/integrations/supabase/client";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { listThreads, createThread, deleteThread, getThreadMessages, renameThread } from "@/lib/data.functions";
 import { cn } from "@/lib/utils";
 import { exportChatMarkdown } from "@/lib/chat-export";
