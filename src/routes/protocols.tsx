@@ -260,3 +260,15 @@ export function NeedAuth({ title }: { title: string }) {
     </div>
   );
 }
+
+export function AuthLoading() {
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      <SiteHeader />
+      <div className="flex-1 flex items-center justify-center p-8" aria-live="polite" aria-busy="true">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+      <SiteFooter />
+    </div>
+  );
+}
