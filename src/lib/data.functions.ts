@@ -4,12 +4,18 @@ import { z } from "zod";
 
 // ---- Calculation history ----
 
+const jsonRecord = (maxBytes: number) =>
+  z.record(z.string(), z.unknown()).refine(
+    (v) => JSON.stringify(v).length <= maxBytes,
+    { message: "Payload too large" },
+  );
+
 const SaveCalcInput = z.object({
-  calculator_slug: z.string().min(1),
-  calculator_label: z.string().min(1),
-  inputs: z.record(z.string(), z.unknown()),
-  outputs: z.record(z.string(), z.unknown()),
-  summary: z.string().optional(),
+  calculator_slug: z.string().min(1).max(100),
+  calculator_label: z.string().min(1).max(200),
+  inputs: jsonRecord(20_000),
+  outputs: jsonRecord(20_000),
+  summary: z.string().max(2_000).optional(),
 });
 
 export const saveCalculation = createServerFn({ method: "POST" })
