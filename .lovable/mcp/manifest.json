@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "sdk_version": "0.23.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://noadsjhrpnqlebtzeujx.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "biocalc-ai-mcp",
+      "version": "0.1.0",
+      "title": "BioCalc AI"
+    },
+    "tools": [
+      {
+        "name": "list_calculators",
+        "title": "List calculators",
+        "description": "List all 15 available BioCalc AI laboratory calculators, grouped by category, with slug and description.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_calculation_history",
+        "title": "List calculation history",
+        "description": "List the signed-in user's recent BioCalc AI calculations (most recent first). Includes calculator name, inputs, outputs, and timestamp.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "default": 20,
+              "description": "Max rows to return (1-100).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_chat_threads",
+        "title": "List AI assistant chat threads",
+        "description": "List the signed-in user's saved AI Lab Assistant chat threads (title and timestamps). Use `read_chat_thread` to fetch messages for one.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "read_chat_thread",
+        "title": "Read AI assistant chat thread",
+        "description": "Read all messages (role + content) from one of the signed-in user's AI Lab Assistant threads, given its thread id.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "thread_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "Thread id from `list_chat_threads`."
+            }
+          },
+          "required": [
+            "thread_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "ask_lab_assistant",
+        "title": "Ask the AI Lab Assistant",
+        "description": "One-shot question to the BioCalc AI lab assistant (molecular biology, microbiology, biochemistry, cloning, CRISPR, cell culture, enzyme kinetics). Returns a markdown answer.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 4000,
+              "description": "The lab question to answer."
+            }
+          },
+          "required": [
+            "question"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
