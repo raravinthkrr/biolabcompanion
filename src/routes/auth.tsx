@@ -13,6 +13,9 @@ import { lovable } from "@/integrations/lovable";
 import { ChevronLeft, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" ? s.next : "",
+  }),
   head: () => ({
     meta: [
       { title: "Sign in – BioCalc AI" },
@@ -22,8 +25,17 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+// Same-origin relative path only — no protocol-relative or absolute URLs.
+function safeNext(next: string): string {
+  if (!next) return "/calculators";
+  if (!next.startsWith("/") || next.startsWith("//")) return "/calculators";
+  return next;
+}
+
 function AuthPage() {
   const nav = useNavigate();
+  const { next } = Route.useSearch();
+  const target = safeNext(next);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -32,9 +44,9 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) nav({ to: "/calculators", replace: true });
+      if (data.user) nav({ to: target, replace: true });
     });
-  }, [nav]);
+  }, [nav, target]);
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +55,7 @@ function AuthPage() {
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Welcome back!");
-    nav({ to: "/calculators", replace: true });
+    nav({ to: target, replace: true });
   }
 
   async function handleSignUp(e: React.FormEvent) {
@@ -51,7 +63,10 @@ function AuthPage() {
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email, password,
-      options: { emailRedirectTo: window.location.origin, data: { display_name: name } },
+      options: {
+        emailRedirectTo: window.location.origin + target,
+        data: { display_name: name },
+      },
     });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
@@ -61,10 +76,12 @@ function AuthPage() {
 
   async function handleGoogle() {
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin + target,
+    });
     if (result.error) { toast.error(result.error.message ?? "Sign-in failed"); setLoading(false); return; }
     if (result.redirected) return;
-    nav({ to: "/calculators", replace: true });
+    nav({ to: target, replace: true });
   }
 
   return (
