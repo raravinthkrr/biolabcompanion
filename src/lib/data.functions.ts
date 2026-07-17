@@ -4,12 +4,18 @@ import { z } from "zod";
 
 // ---- Calculation history ----
 
+const jsonRecord = (maxBytes: number) =>
+  z.record(z.string(), z.unknown()).refine(
+    (v) => JSON.stringify(v).length <= maxBytes,
+    { message: "Payload too large" },
+  );
+
 const SaveCalcInput = z.object({
-  calculator_slug: z.string().min(1),
-  calculator_label: z.string().min(1),
-  inputs: z.record(z.string(), z.unknown()),
-  outputs: z.record(z.string(), z.unknown()),
-  summary: z.string().optional(),
+  calculator_slug: z.string().min(1).max(100),
+  calculator_label: z.string().min(1).max(200),
+  inputs: jsonRecord(20_000),
+  outputs: jsonRecord(20_000),
+  summary: z.string().max(2_000).optional(),
 });
 
 export const saveCalculation = createServerFn({ method: "POST" })
@@ -122,8 +128,8 @@ export const saveProtocol = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
     title: z.string().min(1).max(200),
-    source_text: z.string().min(1),
-    summary: z.record(z.string(), z.unknown()),
+    source_text: z.string().min(1).max(60_000),
+    summary: jsonRecord(100_000),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
@@ -156,8 +162,8 @@ export const savePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
     title: z.string().min(1).max(200),
-    inputs: z.record(z.string(), z.unknown()),
-    plan: z.record(z.string(), z.unknown()),
+    inputs: jsonRecord(20_000),
+    plan: jsonRecord(100_000),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
