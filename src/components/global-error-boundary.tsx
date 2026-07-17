@@ -22,7 +22,6 @@ export class GlobalErrorBoundary extends Component<{ children: ReactNode }, Stat
 
   render() {
     if (!this.state.error) return this.props.children;
-    const message = this.state.error.message || "Unknown error";
     return (
       <div style={{
         minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
@@ -31,7 +30,7 @@ export class GlobalErrorBoundary extends Component<{ children: ReactNode }, Stat
       }}>
         <div style={{ maxWidth: "28rem", width: "100%", textAlign: "center" }}>
           <h1 style={{ fontSize: "1.25rem", margin: "0 0 0.5rem", fontWeight: 600 }}>This page didn't load</h1>
-          <p style={{ color: "#6b7280", margin: "0 0 1.5rem", wordBreak: "break-word" }}>{message}</p>
+          <p style={{ color: "#6b7280", margin: "0 0 1.5rem" }}>Something went wrong. Please try again.</p>
           <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", flexWrap: "wrap" }}>
             <button
               onClick={this.reset}
