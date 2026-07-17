@@ -162,8 +162,8 @@ export const savePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
     title: z.string().min(1).max(200),
-    inputs: z.record(z.string(), z.unknown()),
-    plan: z.record(z.string(), z.unknown()),
+    inputs: jsonRecord(20_000),
+    plan: jsonRecord(100_000),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
