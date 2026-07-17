@@ -128,8 +128,8 @@ export const saveProtocol = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
     title: z.string().min(1).max(200),
-    source_text: z.string().min(1),
-    summary: z.record(z.string(), z.unknown()),
+    source_text: z.string().min(1).max(60_000),
+    summary: jsonRecord(100_000),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
