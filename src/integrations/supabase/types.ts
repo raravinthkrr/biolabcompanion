@@ -22,6 +22,7 @@ export type Database = {
           favorite: boolean
           id: string
           inputs: Json
+          lab_id: string | null
           outputs: Json
           summary: string | null
           user_id: string
@@ -33,6 +34,7 @@ export type Database = {
           favorite?: boolean
           id?: string
           inputs?: Json
+          lab_id?: string | null
           outputs?: Json
           summary?: string | null
           user_id: string
@@ -44,11 +46,20 @@ export type Database = {
           favorite?: boolean
           id?: string
           inputs?: Json
+          lab_id?: string | null
           outputs?: Json
           summary?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calculation_history_lab_id_fkey"
+            columns: ["lab_id"]
+            isOneToOne: false
+            referencedRelation: "labs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       chat_messages: {
         Row: {
@@ -114,6 +125,7 @@ export type Database = {
           created_at: string
           id: string
           inputs: Json
+          lab_id: string | null
           plan: Json
           title: string
           user_id: string
@@ -122,6 +134,7 @@ export type Database = {
           created_at?: string
           id?: string
           inputs?: Json
+          lab_id?: string | null
           plan?: Json
           title: string
           user_id: string
@@ -130,9 +143,118 @@ export type Database = {
           created_at?: string
           id?: string
           inputs?: Json
+          lab_id?: string | null
           plan?: Json
           title?: string
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiment_plans_lab_id_fkey"
+            columns: ["lab_id"]
+            isOneToOne: false
+            referencedRelation: "labs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          lab_id: string
+          role: Database["public"]["Enums"]["lab_role"]
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          lab_id: string
+          role?: Database["public"]["Enums"]["lab_role"]
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          lab_id?: string
+          role?: Database["public"]["Enums"]["lab_role"]
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_invites_lab_id_fkey"
+            columns: ["lab_id"]
+            isOneToOne: false
+            referencedRelation: "labs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_members: {
+        Row: {
+          id: string
+          joined_at: string
+          lab_id: string
+          role: Database["public"]["Enums"]["lab_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          lab_id: string
+          role?: Database["public"]["Enums"]["lab_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          lab_id?: string
+          role?: Database["public"]["Enums"]["lab_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_members_lab_id_fkey"
+            columns: ["lab_id"]
+            isOneToOne: false
+            referencedRelation: "labs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      labs: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
         }
         Relationships: []
       }
@@ -164,6 +286,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          lab_id: string | null
           source_text: string
           summary: Json
           title: string
@@ -172,6 +295,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          lab_id?: string | null
           source_text: string
           summary?: Json
           title: string
@@ -180,22 +304,42 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          lab_id?: string | null
           source_text?: string
           summary?: Json
           title?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "saved_protocols_lab_id_fkey"
+            columns: ["lab_id"]
+            isOneToOne: false
+            referencedRelation: "labs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_write_lab: {
+        Args: { _lab_id: string; _user_id: string }
+        Returns: boolean
+      }
+      get_lab_role: {
+        Args: { _lab_id: string; _user_id: string }
+        Returns: Database["public"]["Enums"]["lab_role"]
+      }
+      is_lab_member: {
+        Args: { _lab_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      lab_role: "pi" | "member" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -322,6 +466,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      lab_role: ["pi", "member", "viewer"],
+    },
   },
 } as const
