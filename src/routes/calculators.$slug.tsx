@@ -33,7 +33,7 @@ export const Route = createFileRoute("/calculators/$slug")({
 });
 
 function CalcRoute() {
-  const { slug } = Route.useLoaderData();
+  const { slug } = Route.useParams();
   const Comp = CALCULATOR_COMPONENTS[slug];
   return (
     <div className="min-h-screen flex flex-col bg-background">

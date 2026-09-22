@@ -13,8 +13,8 @@ import { lovable } from "@/integrations/lovable";
 import { ChevronLeft, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    next: typeof s.next === "string" ? s.next : "",
+  validateSearch: (s: Record<string, unknown>): { next?: string } => ({
+    next: typeof s.next === "string" ? s.next : undefined,
   }),
   head: () => ({
     meta: [
@@ -35,7 +35,7 @@ function safeNext(next: string): string {
 function AuthPage() {
   const nav = useNavigate();
   const { next } = Route.useSearch();
-  const target = safeNext(next);
+  const target = safeNext(next ?? "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
