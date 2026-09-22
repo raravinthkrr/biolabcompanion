@@ -35,7 +35,7 @@ function safeNext(next: string): string {
 function AuthPage() {
   const nav = useNavigate();
   const { next } = Route.useSearch();
-  const target = safeNext(next);
+  const target = safeNext(next ?? "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
