@@ -15,12 +15,14 @@ import { Route as ReagentsRouteImport } from './routes/reagents'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as LabsRouteImport } from './routes/labs'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CalculatorsIndexRouteImport } from './routes/calculators.index'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as CalculatorsSlugRouteImport } from './routes/calculators.$slug'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
@@ -58,6 +60,11 @@ const McpRoute = McpRouteImport.update({
   path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LabsRoute = LabsRouteImport.update({
+  id: '/labs',
+  path: '/labs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -86,6 +93,11 @@ const IndexRoute = IndexRouteImport.update({
 const CalculatorsIndexRoute = CalculatorsIndexRouteImport.update({
   id: '/calculators/',
   path: '/calculators/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CalculatorsSlugRoute = CalculatorsSlugRouteImport.update({
@@ -128,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/history': typeof HistoryRoute
+  '/labs': typeof LabsRoute
   '/mcp': typeof McpRoute
   '/planner': typeof PlannerRoute
   '/protocols': typeof ProtocolsRoute
@@ -138,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/api/chat': typeof ApiChatRoute
   '/calculators/$slug': typeof CalculatorsSlugRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/calculators/': typeof CalculatorsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -148,6 +162,7 @@ export interface FileRoutesByTo {
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/history': typeof HistoryRoute
+  '/labs': typeof LabsRoute
   '/mcp': typeof McpRoute
   '/planner': typeof PlannerRoute
   '/protocols': typeof ProtocolsRoute
@@ -158,6 +173,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/api/chat': typeof ApiChatRoute
   '/calculators/$slug': typeof CalculatorsSlugRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/calculators': typeof CalculatorsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -169,6 +185,7 @@ export interface FileRoutesById {
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/history': typeof HistoryRoute
+  '/labs': typeof LabsRoute
   '/mcp': typeof McpRoute
   '/planner': typeof PlannerRoute
   '/protocols': typeof ProtocolsRoute
@@ -179,6 +196,7 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/api/chat': typeof ApiChatRoute
   '/calculators/$slug': typeof CalculatorsSlugRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/calculators/': typeof CalculatorsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -191,6 +209,7 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/auth'
     | '/history'
+    | '/labs'
     | '/mcp'
     | '/planner'
     | '/protocols'
@@ -201,6 +220,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/chat'
     | '/calculators/$slug'
+    | '/invite/$token'
     | '/calculators/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -211,6 +231,7 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/auth'
     | '/history'
+    | '/labs'
     | '/mcp'
     | '/planner'
     | '/protocols'
@@ -221,6 +242,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/chat'
     | '/calculators/$slug'
+    | '/invite/$token'
     | '/calculators'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -231,6 +253,7 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/auth'
     | '/history'
+    | '/labs'
     | '/mcp'
     | '/planner'
     | '/protocols'
@@ -241,6 +264,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/api/chat'
     | '/calculators/$slug'
+    | '/invite/$token'
     | '/calculators/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -252,6 +276,7 @@ export interface RootRouteChildren {
   AssistantRoute: typeof AssistantRoute
   AuthRoute: typeof AuthRoute
   HistoryRoute: typeof HistoryRoute
+  LabsRoute: typeof LabsRoute
   McpRoute: typeof McpRoute
   PlannerRoute: typeof PlannerRoute
   ProtocolsRoute: typeof ProtocolsRoute
@@ -262,6 +287,7 @@ export interface RootRouteChildren {
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   ApiChatRoute: typeof ApiChatRoute
   CalculatorsSlugRoute: typeof CalculatorsSlugRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   CalculatorsIndexRoute: typeof CalculatorsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -311,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/labs': {
+      id: '/labs'
+      path: '/labs'
+      fullPath: '/labs'
+      preLoaderRoute: typeof LabsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/history': {
       id: '/history'
       path: '/history'
@@ -351,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/calculators'
       fullPath: '/calculators/'
       preLoaderRoute: typeof CalculatorsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/calculators/$slug': {
@@ -404,6 +444,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssistantRoute: AssistantRoute,
   AuthRoute: AuthRoute,
   HistoryRoute: HistoryRoute,
+  LabsRoute: LabsRoute,
   McpRoute: McpRoute,
   PlannerRoute: PlannerRoute,
   ProtocolsRoute: ProtocolsRoute,
@@ -415,6 +456,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   ApiChatRoute: ApiChatRoute,
   CalculatorsSlugRoute: CalculatorsSlugRoute,
+  InviteTokenRoute: InviteTokenRoute,
   CalculatorsIndexRoute: CalculatorsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
