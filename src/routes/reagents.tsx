@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuthUser } from "@/hooks/use-auth-user";
+import { AiSafetyNotice } from "@/components/ai-disclaimer";
 import { reagentHelper, type ReagentRecipe } from "@/lib/ai.functions";
 import { exportReagentPdf } from "@/lib/export";
 import { NeedAuth, AuthLoading } from "./protocols";
@@ -104,6 +105,7 @@ function ReagentPage() {
         {out && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
             <Card className="mt-6 p-6 space-y-4 text-sm">
+              <AiSafetyNotice />
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h2 className="text-xl font-display font-bold">{out.reagent_name}</h2>

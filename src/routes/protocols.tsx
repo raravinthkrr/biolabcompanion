@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAuthUser } from "@/hooks/use-auth-user";
+import { AiSafetyNotice } from "@/components/ai-disclaimer";
 import { summarizeProtocol, type ProtocolSummary } from "@/lib/ai.functions";
 import { listProtocols, saveProtocol, deleteProtocol } from "@/lib/data.functions";
 import { exportProtocolPdf, downloadText } from "@/lib/export";
@@ -177,6 +178,7 @@ function ProtocolsPage() {
               <p className="text-sm text-muted-foreground italic">Your structured summary will appear here.</p>
             ) : (
               <div className="space-y-4 text-sm">
+                <AiSafetyNotice />
                 <div>
                   <h2 className="font-display text-xl font-bold">{result.title}</h2>
                   <p className="text-muted-foreground mt-1">{result.summary}</p>
