@@ -29,7 +29,7 @@ export const Route = createFileRoute("/labs")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: LabsPage;
+  component: LabsPage,
 });
 
 const ROLES = ["pi", "member", "viewer"] as const;
