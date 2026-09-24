@@ -149,9 +149,20 @@ function ProtocolsPage() {
 
   async function handleSave() {
     if (!result) return;
-    await saveFn({ data: { title: title || result.title, source_text: text, summary: result } });
-    qc.invalidateQueries({ queryKey: ["protocols"] });
-    toast.success("Saved.");
+    try {
+      await saveFn({
+        data: {
+          title: title || result.title,
+          source_text: text,
+          summary: result,
+          lab_id: shareTarget === PRIVATE ? null : shareTarget,
+        },
+      });
+      qc.invalidateQueries({ queryKey: ["protocols"] });
+      toast.success(shareTarget === PRIVATE ? "Saved privately." : "Saved and shared with your lab.");
+    } catch {
+      toast.error("Could not save this protocol.");
+    }
   }
 
   if (authLoading) return <AuthLoading />;
