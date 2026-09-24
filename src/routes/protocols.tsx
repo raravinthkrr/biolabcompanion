@@ -84,14 +84,34 @@ function ProtocolsPage() {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<string>(PRIVATE);
+  const [scope, setScope] = useState<"all" | "mine" | "lab">("all");
 
   const summarizeFn = useServerFn(summarizeProtocol);
   const listFn = useServerFn(listProtocols);
   const saveFn = useServerFn(saveProtocol);
   const deleteFn = useServerFn(deleteProtocol);
+  const shareFn = useServerFn(setProtocolLab);
+  const labsFn = useServerFn(listMyLabs);
   const qc = useQueryClient();
 
   const saved = useQuery({ queryKey: ["protocols"], queryFn: () => listFn({}), enabled: authed });
+  const labs = useQuery({ queryKey: ["my-labs"], queryFn: () => labsFn({}), enabled: authed });
+  const writableLabs = (labs.data ?? []).filter((l) => l.role === "pi" || l.role === "member");
+
+  async function handleShare(id: string, value: string) {
+    try {
+      await shareFn({ data: { id, lab_id: value === PRIVATE ? null : value } });
+      qc.invalidateQueries({ queryKey: ["protocols"] });
+      toast.success(value === PRIVATE ? "Moved to private." : "Shared with your lab.");
+    } catch {
+      toast.error("Could not update sharing.");
+    }
+  }
+
+  const visible = (saved.data ?? []).filter((p) =>
+    scope === "all" ? true : scope === "mine" ? !p.lab_id : !!p.lab_id,
+  );
 
   async function handleUpload(file: File) {
     setUploading(true);
