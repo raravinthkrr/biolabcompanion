@@ -224,10 +224,23 @@ function ProtocolsPage() {
                 <Section title="Safety notes" items={result.safety_notes} />
                 <Section title="Common mistakes" items={result.common_mistakes} />
                 <p className="text-xs"><strong>Time estimate:</strong> {result.time_estimate}</p>
-                <div className="flex flex-wrap gap-2 pt-2">
+                <div className="flex flex-wrap items-center gap-2 pt-2">
                   <Button size="sm" variant="outline" onClick={() => exportProtocolPdf(title || result.title, result as unknown as Record<string, unknown>)}><FileDown className="h-4 w-4 mr-1" /> PDF</Button>
                   <Button size="sm" variant="outline" onClick={() => downloadText(`${title || result.title}.md`, toMarkdown(title || result.title, result), "text/markdown")}>Markdown</Button>
                   <Button size="sm" variant="outline" onClick={() => downloadText(`${title || result.title}.txt`, JSON.stringify(result, null, 2))}>TXT</Button>
+                  {writableLabs.length > 0 && (
+                    <Select value={shareTarget} onValueChange={setShareTarget}>
+                      <SelectTrigger className="h-9 w-[170px]" aria-label="Save destination">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={PRIVATE}>Private (just me)</SelectItem>
+                        {writableLabs.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Button size="sm" onClick={handleSave} className="bg-gradient-primary text-primary-foreground ml-auto"><Save className="h-4 w-4 mr-1" /> Save</Button>
                 </div>
               </div>
@@ -235,12 +248,27 @@ function ProtocolsPage() {
           </Card>
         </div>
 
-        <h2 className="mt-12 font-display font-bold text-xl">Saved protocols</h2>
+        <div className="mt-12 flex flex-wrap items-center gap-3">
+          <h2 className="font-display font-bold text-xl">Saved protocols</h2>
+          {(labs.data ?? []).length > 0 && (
+            <div className="flex gap-1 ml-auto" role="group" aria-label="Filter protocols">
+              {([["all", "All"], ["mine", "My items"], ["lab", "Lab items"]] as const).map(([key, label]) => (
+                <Button key={key} size="sm" variant={scope === key ? "default" : "outline"} onClick={() => setScope(key)}>
+                  {label}
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-          {(saved.data ?? []).map((p) => (
+          {visible.map((p) => (
             <Card key={p.id} className="p-4">
               <div className="font-display font-semibold truncate">{p.title}</div>
               <div className="text-xs text-muted-foreground mt-1">{new Date(p.created_at).toLocaleString()}</div>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {p.lab_name ? <Badge variant="secondary">Shared · {p.lab_name}</Badge> : <Badge variant="outline">Private</Badge>}
+                {!p.is_mine && <Badge variant="outline">From a labmate</Badge>}
+              </div>
               <div className="flex gap-1 mt-3">
                 <Button size="sm" variant="outline" onClick={() => { setText(p.source_text); setTitle(p.title); setResult(p.summary as ProtocolSummary); }}>Open</Button>
                 <Button size="sm" variant="ghost" onClick={() => exportProtocolPdf(p.title, p.summary as Record<string, unknown>)}><FileDown className="h-4 w-4" /></Button>
@@ -248,9 +276,24 @@ function ProtocolsPage() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
+              {p.is_mine && writableLabs.length > 0 && (
+                <div className="mt-3">
+                  <Select value={p.lab_id ?? PRIVATE} onValueChange={(v) => handleShare(p.id, v)}>
+                    <SelectTrigger className="h-8 text-xs" aria-label={`Sharing for ${p.title}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={PRIVATE}>Private (just me)</SelectItem>
+                      {writableLabs.map((l) => (
+                        <SelectItem key={l.id} value={l.id}>Share with {l.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </Card>
           ))}
-          {saved.data?.length === 0 && <p className="text-sm text-muted-foreground">No saved protocols yet.</p>}
+          {visible.length === 0 && <p className="text-sm text-muted-foreground">No protocols here yet.</p>}
         </div>
       </main>
       <SiteFooter />
