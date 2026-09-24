@@ -13,12 +13,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { AiSafetyNotice } from "@/components/ai-disclaimer";
 import { summarizeProtocol, type ProtocolSummary } from "@/lib/ai.functions";
-import { listProtocols, saveProtocol, deleteProtocol } from "@/lib/data.functions";
+import { listProtocols, saveProtocol, deleteProtocol, setProtocolLab } from "@/lib/data.functions";
+import { listMyLabs } from "@/lib/labs.functions";
 import { exportProtocolPdf, downloadText } from "@/lib/export";
 import { cn } from "@/lib/utils";
+
+const PRIVATE = "private";
 
 export const Route = createFileRoute("/protocols")({
   head: () => ({
