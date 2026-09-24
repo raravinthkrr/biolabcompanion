@@ -130,10 +130,13 @@ export const saveProtocol = createServerFn({ method: "POST" })
     title: z.string().min(1).max(200),
     source_text: z.string().min(1).max(60_000),
     summary: jsonRecord(100_000),
+    lab_id: z.string().uuid().nullable().optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: row, error } = await context.supabase
-      .from("saved_protocols").insert({ ...data, user_id: context.userId } as never).select().single();
+      .from("saved_protocols")
+      .insert({ ...data, lab_id: data.lab_id ?? null, user_id: context.userId } as never)
+      .select().single();
     if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
     return row;
   });
@@ -142,9 +145,33 @@ export const listProtocols = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
-      .from("saved_protocols").select("*").order("created_at", { ascending: false });
+      .from("saved_protocols").select("*, labs(id, name)").order("created_at", { ascending: false });
     if (error) { console.error("[db]", error.message); throw new Error("Database operation failed"); }
-    return data ?? [];
+    return (data ?? []).map((row) => {
+      const { labs, ...rest } = row as typeof row & { labs: { id: string; name: string } | null };
+      return {
+        ...rest,
+        lab_name: labs?.name ?? null,
+        is_mine: (rest as { user_id: string }).user_id === context.userId,
+      };
+    });
+  });
+
+/** Share a protocol with a lab (labId) or make it private again (null). */
+export const setProtocolLab = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    id: z.string().uuid(),
+    lab_id: z.string().uuid().nullable(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("saved_protocols")
+      .update({ lab_id: data.lab_id })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) { console.error("[db]", error.message); throw new Error("Could not update sharing for this protocol."); }
+    return { ok: true };
   });
 
 export const deleteProtocol = createServerFn({ method: "POST" })
